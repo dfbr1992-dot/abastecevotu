@@ -1,0 +1,17 @@
+{
+  "name": "Abastece Votu — Combustível Mais Barato em Votuporanga",
+  "short_name": "Abastece Votu",
+  "description": "Compare preços de combustível, agende serviços e ganhe prêmios em Votuporanga.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2563eb",
+  "theme_color": "#2563eb",
+  "lang": "pt-BR",
+  "categories": ["business", "utilities", "navigation"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
