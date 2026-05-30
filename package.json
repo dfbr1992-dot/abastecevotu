@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 8080",
-    "build": "vite build",
+    "build": "vite build --clearScreen false",
     "preview": "vite preview",
-    "build:dev": "vite build --mode development"
+    "build:dev": "vite build --mode development --clearScreen false"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
