@@ -279,64 +279,72 @@ function Index() {
   </DropdownMenuTrigger>
   
   {/* O container agora muda de cor baseado no tema selecionado */}
-  <DropdownMenuContent 
-    align="end" 
-    className={`w-54 rounded-[20px] shadow-xl p-2 transition-colors duration-200 border ${theme === "dark" ? "text-white" : "text-zinc-900"}`}
+ <DropdownMenuContent 
+  align="end" 
+  className={`w-54 rounded-[20px] shadow-xl p-2 transition-colors duration-200 border ${
+    theme === "dark" 
+      ? "bg-[#161618] border-white/10 text-white" 
+      : "bg-white border-zinc-200 text-zinc-900"
+  }`}
+>
+  <DropdownMenuLabel className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-400"}`}>
+    Minha Conta
+  </DropdownMenuLabel>
+  
+  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+  
+  {/* Opção de Configurações */}
+  <DropdownMenuItem 
+    onClick={() => navigate({ to: "/meus-dados" })}
+    className={`flex items-center gap-2 rounded-xl cursor-pointer p-2 transition-colors ${
+      theme === "dark" ? "hover:bg-white/5 focus:bg-white/5" : "hover:bg-zinc-100 focus:bg-zinc-100"
+    }`}
   >
-    <DropdownMenuLabel className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-400"}`}>
-      Minha Conta
-    </DropdownMenuLabel>
-    
-    <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
-    
-   {/* Opção de Configurações */}
-          <DropdownMenuItem 
-            onClick={() => navigate({ to: "/meus-dados" })}
-            className={`flex items-center gap-2 rounded-xl cursor-pointer p-2 transition-colors ${
-              theme === "dark" ? "hover:bg-white/5" : "hover:bg-zinc-100"
-            }`}
-          >
-            <User className="h-4 w-4 text-zinc-400" />
-            <span className="text-sm font-medium">Meus Dados</span>
-          </DropdownMenuItem>
+    <User className="h-4 w-4 text-zinc-400" />
+    <span className="text-sm font-medium">Meus Dados</span>
+  </DropdownMenuItem>
 
-    {/* NOVA CHAVE DE TEMA CLARO / ESCURO */}
-    <DropdownMenuItem 
-      onClick={(e) => {
-        e.preventDefault(); // Evita que o menu feche sozinho ao clicar na chave
-        toggleTheme();
-      }}
-      className={`flex items-center justify-between rounded-xl cursor-pointer p-2 transition-colors ${theme === "dark" ? "focus:bg-white/5" : "focus:bg-zinc-100"}`}
-    >
-      <div className="flex items-center gap-2">
-        {theme === "dark" ? (
-          <Sun className="h-4 w-4 text-yellow-500" />
-        ) : (
-          <Moon className="h-4 w-4 text-indigo-500" />
-        )}
-        <span className="text-sm font-medium">Aparência</span>
-      </div>
-      
-      {/* INTERRUPTOR VISUAL (SWITCH) */}
-      <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
-        <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md transition-all" />
-      </div>
-    </DropdownMenuItem>
-
-    <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+  {/* NOVA CHAVE DE TEMA CLARO / ESCURO */}
+  <DropdownMenuItem 
+    onClick={(e) => {
+      e.preventDefault(); // Evita que o menu feche sozinho ao clicar na chave
+      toggleTheme();
+    }}
+    className={`flex items-center justify-between rounded-xl cursor-pointer p-2 transition-colors ${
+      theme === "dark" ? "hover:bg-white/5 focus:bg-white/5" : "hover:bg-zinc-100 focus:bg-zinc-100"
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      {theme === "dark" ? (
+        <Sun className="h-4 w-4 text-yellow-500" />
+      ) : (
+        <Moon className="h-4 w-4 text-indigo-500" />
+      )}
+      <span className="text-sm font-medium">Aparência</span>
+    </div>
     
-    {/* BOTÃO DE SAIR */}
-    <DropdownMenuItem 
-      onClick={async () => {
-        await signOut();
-        fireToast("Você saiu da conta");
-      }}
-      className="flex items-center gap-2 rounded-xl cursor-pointer p-2 focus:bg-red-500/10 focus:text-red-400 text-red-400 transition-colors"
-    >
-      <LogOut className="h-4 w-4" />
-      <span className="text-sm font-bold">Sair da Conta</span>
-    </DropdownMenuItem>
-  </DropdownMenuContent>
+    {/* INTERRUPTOR VISUAL (SWITCH) */}
+    <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
+      <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md transition-all" />
+    </div>
+  </DropdownMenuItem>
+
+  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+  
+  {/* BOTÃO DE SAIR */}
+  <DropdownMenuItem 
+    onClick={async () => {
+      await signOut();
+      fireToast("Você saiu da conta");
+    }}
+    className={`flex items-center gap-2 rounded-xl cursor-pointer p-2 transition-colors text-red-400 ${
+      theme === "dark" ? "hover:bg-red-500/10 focus:bg-red-500/10" : "hover:bg-red-50 focus:bg-red-50 text-red-500"
+    }`}
+  >
+    <LogOut className="h-4 w-4" />
+    <span className="text-sm font-bold">Sair da Conta</span>
+  </DropdownMenuItem>
+</DropdownMenuContent>
 </DropdownMenu>
             </div>
           ) : (
@@ -373,77 +381,93 @@ function Index() {
           )}
 
           {section === "carro" && (
-            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} />
+            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} />
           )}
 
 {section === "servicos" && (
-            <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
-              
-              {/* CABEÇALHO */}
-              <div className="flex items-center gap-2 mb-5 pl-1">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg shadow-inner">
-                  🛠️
-                </span>
-                <h3 className="text-[13px] font-extrabold uppercase tracking-widest text-muted-foreground/80">
-                  Serviços Automotivos
-                </h3>
+  <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
+    
+    {/* CABEÇALHO */}
+    <div className="flex items-center gap-2 mb-5 pl-1">
+      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>
+        🛠️
+      </span>
+      <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
+        Serviços Automotivos
+      </h3>
+    </div>
+
+    {/* LISTA DE SERVIÇOS */}
+    <div className="space-y-4">
+      {servicos.map((s) => (
+        <article 
+          key={s.name} 
+          className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:shadow-2xl ${
+            theme === "dark" 
+              ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d] hover:border-white/20" 
+              : "bg-white border-zinc-200 hover:border-zinc-300 shadow-zinc-100"
+          }`}
+        >
+          {/* Topo: Nome, Endereço e Categoria */}
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <h4 className={`truncate text-base font-bold transition-colors group-hover:text-blue-500 ${
+                theme === "dark" ? "text-white group-hover:text-blue-400" : "text-zinc-900"
+              }`}>
+                {s.name}
+              </h4>
+              <p className={`truncate text-[11px] ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>{s.address}</p>
+              <p className={`mt-1 text-[10px] font-semibold ${theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"}`}>{s.hours}</p>
+            </div>
+            
+            {/* Badge da Categoria */}
+            <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-500 border border-blue-500/20">
+              {s.categoria}
+            </span>
+          </div>
+
+          {/* Meio: Preço e Distância */}
+          <div className="flex items-end justify-between py-2">
+            <div>
+              <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${
+                theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"
+              }`}>
+                Valor Estimado
+              </span>
+              <div className={`text-2xl font-black tracking-tight drop-shadow-sm ${
+                theme === "dark" ? "text-white" : "text-zinc-900"
+              }`}>
+                {s.price}
               </div>
+            </div>
+            <div className="mb-1 text-right">
+              <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${
+                theme === "dark" ? "bg-white/5 text-muted-foreground border-white/5" : "bg-zinc-50 text-zinc-600 border-zinc-200"
+              }`}>
+                {s.distance} km
+              </span>
+            </div>
+          </div>
 
-              {/* LISTA DE SERVIÇOS */}
-              <div className="space-y-4">
-                {servicos.map((s) => (
-                  <article 
-                    key={s.name} 
-                    className="group relative flex flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#161618] p-5 shadow-xl transition-all duration-300 hover:bg-[#1a1a1d] hover:border-white/20 hover:shadow-2xl"
-                  >
-                    {/* Topo: Nome, Endereço e Categoria */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="min-w-0">
-                        <h4 className="truncate text-base font-bold text-white transition-colors group-hover:text-blue-400">
-                          {s.name}
-                        </h4>
-                        <p className="truncate text-[11px] text-muted-foreground">{s.address}</p>
-                        <p className="mt-1 text-[10px] font-semibold text-muted-foreground/60">{s.hours}</p>
-                      </div>
-                      
-                      {/* Badge da Categoria */}
-                      <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-400 border border-blue-500/20">
-                        {s.categoria}
-                      </span>
-                    </div>
+          {/* Rodapé: Botão de Agendamento Full-Width */}
+          <div className={`mt-3 border-t pt-4 ${theme === "dark" ? "border-white/5" : "border-zinc-100"}`}>
+            <button
+              onClick={() => requireAuth(() => fireToast(`${s.name} agendado!`), "Faça login para agendar")}
+              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold uppercase tracking-wider border transition-all hover:bg-blue-500 hover:border-blue-500 hover:text-white hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98] ${
+                theme === "dark" 
+                  ? "bg-white/5 text-white border-white/10" 
+                  : "bg-zinc-50 text-blue-600 border-zinc-200"
+              }`}
+            >
+              📅 Agendar Serviço
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
 
-                    {/* Meio: Preço e Distância */}
-                    <div className="flex items-end justify-between py-2">
-                      <div>
-                        <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">
-                          Valor Estimado
-                        </span>
-                        <div className="text-2xl font-black tracking-tight text-white drop-shadow-sm">
-                          {s.price}
-                        </div>
-                      </div>
-                      <div className="mb-1 text-right">
-                        <span className="rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-bold text-muted-foreground border border-white/5">
-                          {s.distance} km
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Rodapé: Botão de Agendamento Full-Width */}
-                    <div className="mt-3 border-t border-white/5 pt-4">
-                      <button
-                        onClick={() => requireAuth(() => fireToast(`${s.name} agendado!`), "Faça login para agendar")}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-white/5 py-3 text-[12px] font-bold uppercase tracking-wider text-white border border-white/10 transition-all hover:bg-blue-500 hover:border-blue-500 hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98]"
-                      >
-                        📅 Agendar Serviço
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-            </section>
-          )}
+  </section>
+)}
           {section === "planos" && (
   <div className="flex flex-col items-center justify-center p-6 bg-[#0f111a] min-h-screen">
     <h1 className="text-3xl font-black text-white mb-2 text-center">Potencialize sua economia com o Abastece+</h1>
@@ -495,6 +519,7 @@ function Index() {
               refreshPoints={refreshPoints}
               requireAuth={requireAuth}
               fireToast={fireToast}
+              theme= {theme}
             />
           )}
         </div>
@@ -824,15 +849,19 @@ function PostosSection({
 /* ---------- MEU CARRO ---------- */
 
 function CarroSection({
-  user, requireAuth, fireToast,
-}: { user: { id: string } | null; requireAuth: (fn: () => void, m?: string) => void; fireToast: (m: string) => void }) {
+  user, requireAuth, fireToast, theme,
+}: { 
+  user: { id: string } | null; 
+  requireAuth: (fn: () => void, m?: string) => void; 
+  fireToast: (m: string) => void;
+  theme: string; // Adicionado o tema aqui
+}) {
   const { vehicle, save } = useVehicle(user?.id ?? null);
   const [form, setForm] = useState({
     marca: "", modelo: "", ano: "", placa: "",
     licenciamento_vencimento: "", seguro_vencimento: "",
   });
   
-  // Controle de estado para exibir o formulário ou o card de resumo
   const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
@@ -845,7 +874,6 @@ function CarroSection({
         licenciamento_vencimento: vehicle.licenciamento_vencimento ?? "",
         seguro_vencimento: vehicle.seguro_vencimento ?? "",
       });
-      // Se já houver um carro cadastrado válido, esconde o formulário
       if (vehicle.marca && vehicle.modelo) {
         setIsExpanded(false);
       }
@@ -866,7 +894,7 @@ function CarroSection({
         seguro_vencimento: form.seguro_vencimento || null,
       });
       fireToast("Veículo salvo com sucesso!");
-      setIsExpanded(false); // Retrai o form após o sucesso
+      setIsExpanded(false);
     } catch {
       fireToast("Erro ao salvar o veículo");
     }
@@ -874,126 +902,91 @@ function CarroSection({
 
   const licDays = daysUntil(form.licenciamento_vencimento);
   const segDays = daysUntil(form.seguro_vencimento);
-  
-  // Verifica se existe um veículo mínimo para mostrar o card
   const hasVehicle = Boolean(form.marca && form.modelo);
 
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 space-y-4 pt-2">
       
-      {/* CABEÇALHO */}
       <div className="flex items-center gap-2 mb-4">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg shadow-inner">
+        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>
           🚗
         </span>
-        <h3 className="text-[13px] font-extrabold uppercase tracking-widest text-muted-foreground/80">
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
           Garagem
         </h3>
       </div>
 
-      {/* ALERTAS INTELIGENTES */}
       {(licDays !== null && licDays <= 30) && (
-        <Alert
-          tone={licDays < 0 ? "danger" : "warn"}
-          title={licDays < 0 ? "Licenciamento vencido" : `Licenciamento vence em ${licDays} dias`}
-        />
+        <Alert tone={licDays < 0 ? "danger" : "warn"} title={licDays < 0 ? "Licenciamento vencido" : `Licenciamento vence em ${licDays} dias`} />
       )}
       {(segDays !== null && segDays <= 30) && (
-        <Alert
-          tone={segDays < 0 ? "danger" : "warn"}
-          title={segDays < 0 ? "Seguro vencido" : `Seguro vence em ${segDays} dias`}
-        />
+        <Alert tone={segDays < 0 ? "danger" : "warn"} title={segDays < 0 ? "Seguro vencido" : `Seguro vence em ${segDays} dias`} />
       )}
 
-      {/* RENDERIZAÇÃO CONDICIONAL: CARD DE RESUMO vs FORMULÁRIO */}
       {!isExpanded && hasVehicle ? (
-        
         <div 
           onClick={() => setIsExpanded(true)}
-          className="group cursor-pointer relative overflow-hidden rounded-[22px] border border-white/10 bg-[#161618] p-5 shadow-xl transition-all duration-300 hover:bg-[#1a1a1d] hover:border-white/20 hover:shadow-2xl hover:-translate-y-0.5"
+          className={`group cursor-pointer relative overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:-translate-y-0.5 ${
+            theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-[#1a1a1d] hover:border-white/20" : "border-zinc-200 bg-white hover:border-zinc-300 shadow-zinc-100"
+          }`}
         >
           <div className="flex items-center justify-between">
             <div>
-              <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              <span className={`block text-[10px] font-bold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"}`}>
                 Veículo Principal
               </span>
-              <h4 className="mt-1 text-xl font-black tracking-tight text-white transition-colors group-hover:text-emerald-400">
+              <h4 className={`mt-1 text-xl font-black tracking-tight transition-colors group-hover:text-emerald-500 ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
                 {form.marca} {form.modelo}
               </h4>
               {form.placa && (
-                <div className="mt-2.5 inline-block rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-widest text-white/80 shadow-inner">
+                <div className={`mt-2.5 inline-block rounded-lg border px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-widest shadow-inner ${theme === "dark" ? "border-white/10 bg-white/5 text-white/80" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
                   {form.placa}
                 </div>
               )}
             </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/5 text-muted-foreground transition-all group-hover:bg-emerald-500/10 group-hover:text-emerald-400">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all ${theme === "dark" ? "bg-white/5 text-muted-foreground group-hover:bg-emerald-500/10 group-hover:text-emerald-400" : "bg-zinc-100 text-zinc-400 group-hover:bg-emerald-500/10 group-hover:text-emerald-500"}`}>
               ✏️
             </div>
           </div>
         </div>
-
       ) : (
-
-        <form onSubmit={onSave} className="relative rounded-[22px] border border-white/10 bg-[#161618] p-5 shadow-2xl">
+        <form onSubmit={onSave} className={`relative rounded-[22px] border p-5 shadow-2xl ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
           <div className="mb-4 flex items-center justify-between">
-            <h4 className="text-[11px] font-bold uppercase tracking-widest text-emerald-400">
+            <h4 className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">
               {hasVehicle ? "Editar Veículo" : "Novo Veículo"}
             </h4>
             {hasVehicle && (
-              <button 
-                type="button" 
-                onClick={() => setIsExpanded(false)}
-                className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition hover:bg-white/10 hover:text-white"
-              >
+              <button type="button" onClick={() => setIsExpanded(false)} className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition ${theme === "dark" ? "bg-white/5 text-muted-foreground hover:bg-white/10" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}>
                 ✕ Cancelar
               </button>
             )}
           </div>
           
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Marca">
-              <Input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} placeholder="Ex: Fiat" maxLength={40} className="bg-[#121214] border-white/10 focus:border-emerald-500/50" />
-            </Field>
-            <Field label="Modelo">
-              <Input value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} placeholder="Ex: Uno" maxLength={40} className="bg-[#121214] border-white/10 focus:border-emerald-500/50" />
-            </Field>
-            <Field label="Ano">
-              <Input value={form.ano} onChange={(e) => setForm({ ...form, ano: e.target.value })} placeholder="2020" inputMode="numeric" maxLength={4} className="bg-[#121214] border-white/10 focus:border-emerald-500/50" />
-            </Field>
-            <Field label="Placa">
-              <Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} placeholder="ABC1D23" maxLength={8} className="font-mono uppercase bg-[#121214] border-white/10 focus:border-emerald-500/50" />
-            </Field>
-            <Field label="Venc. Licenciamento">
-              <Input type="date" value={form.licenciamento_vencimento} onChange={(e) => setForm({ ...form, licenciamento_vencimento: e.target.value })} className="bg-[#121214] border-white/10 focus:border-emerald-500/50 text-white/90" />
-            </Field>
-            <Field label="Venc. Seguro">
-              <Input type="date" value={form.seguro_vencimento} onChange={(e) => setForm({ ...form, seguro_vencimento: e.target.value })} className="bg-[#121214] border-white/10 focus:border-emerald-500/50 text-white/90" />
-            </Field>
+            <Field label="Marca"><Input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
+            <Field label="Modelo"><Input value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
+            <Field label="Ano"><Input value={form.ano} onChange={(e) => setForm({ ...form, ano: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
+            <Field label="Placa"><Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
+            <Field label="Venc. Licenciamento"><Input type="date" value={form.licenciamento_vencimento} onChange={(e) => setForm({ ...form, licenciamento_vencimento: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
+            <Field label="Venc. Seguro"><Input type="date" value={form.seguro_vencimento} onChange={(e) => setForm({ ...form, seguro_vencimento: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
           </div>
-          <Button type="submit" className="mt-5 w-full rounded-xl bg-emerald-500 py-3 font-bold text-white transition-all hover:bg-emerald-600 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+          <Button type="submit" className="mt-5 w-full rounded-xl bg-emerald-500 py-3 font-bold text-white transition-all hover:bg-emerald-600">
             {hasVehicle ? "Atualizar Dados" : "Salvar na Garagem"}
           </Button>
         </form>
-        
       )}
 
-      {/* CALCULADORAS ENVELOPADAS EM CARDS PREMIUM */}
-      <div className="mt-8 space-y-4 pt-2 border-t border-white/5">
-        <h3 className="text-[13px] font-extrabold uppercase tracking-widest text-muted-foreground/80 pl-1 mb-3">
+      <div className="mt-8 space-y-4 pt-2 border-t border-zinc-500/10">
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 mb-3 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
           Calculadoras Inteligentes
         </h3>
-        
-        {/* Contêiner da Calculadora Flex */}
-        <div className="overflow-hidden rounded-[22px] border border-white/5 bg-[#161618] p-1 shadow-lg">
-          <FlexCalculator />
+        <div className={`overflow-hidden rounded-[22px] border p-1 shadow-lg ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
+          <FlexCalculator theme={theme} />
         </div>
-        
-        {/* Contêiner da Calculadora de Média */}
-        <div className="overflow-hidden rounded-[22px] border border-white/5 bg-[#161618] p-1 shadow-lg">
-          <AverageCalculator />
+        <div className={`overflow-hidden rounded-[22px] border p-1 shadow-lg ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
+          <AverageCalculator theme={theme} />
         </div>
       </div>
-
     </section>
   );
 }
@@ -1019,9 +1012,10 @@ function Alert({ tone, title }: { tone: "warn" | "danger"; title: string }) {
   );
 }
 
-function FlexCalculator() {
+function FlexCalculator({ theme }: { theme: string }) {
   const [e, setE] = useState("");
   const [g, setG] = useState("");
+  
   const result = useMemo(() => {
     const ev = parseFloat(e.replace(",", "."));
     const gv = parseFloat(g.replace(",", "."));
@@ -1033,14 +1027,48 @@ function FlexCalculator() {
   }, [e, g]);
 
   return (
-    <div className="glass-card space-y-3 rounded-2xl p-4">
-      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Calculadora Flex</h4>
+    <div className={`space-y-3 rounded-2xl p-4 transition-colors duration-200 border ${
+      theme === "dark" 
+        ? "bg-[#161618] border-white/5" 
+        : "bg-white border-zinc-100 shadow-sm"
+    }`}>
+      <h4 className={`text-xs font-bold uppercase tracking-wider ${
+        theme === "dark" ? "text-muted-foreground" : "text-zinc-500"
+      }`}>
+        Calculadora Flex
+      </h4>
+      
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Etanol (R$)"><Input value={e} onChange={(ev) => setE(ev.target.value)} placeholder="3,27" inputMode="decimal" /></Field>
-        <Field label="Gasolina (R$)"><Input value={g} onChange={(ev) => setG(ev.target.value)} placeholder="5,49" inputMode="decimal" /></Field>
+        <Field label="Etanol (R$)">
+          <Input 
+            value={e} 
+            onChange={(ev) => setE(ev.target.value)} 
+            placeholder="3,27" 
+            inputMode="decimal"
+            className={`transition-colors ${
+              theme === "dark" ? "bg-[#121214] border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
+            }`}
+          />
+        </Field>
+        <Field label="Gasolina (R$)">
+          <Input 
+            value={g} 
+            onChange={(ev) => setG(ev.target.value)} 
+            placeholder="5,49" 
+            inputMode="decimal"
+            className={`transition-colors ${
+              theme === "dark" ? "bg-[#121214] border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
+            }`}
+          />
+        </Field>
       </div>
+
       {result && (
-        <div className={`rounded-lg px-3 py-2 text-sm font-bold ${result.good ? "bg-success/15 text-price" : "bg-primary/10 text-white"}`}>
+        <div className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
+          result.good 
+            ? "bg-emerald-500/20 text-emerald-500" 
+            : theme === "dark" ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-500/10 text-indigo-600"
+        }`}>
           {result.winner} ({result.pct}% da gasolina)
         </div>
       )}
@@ -1048,25 +1076,56 @@ function FlexCalculator() {
   );
 }
 
-function AverageCalculator() {
+function AverageCalculator({ theme }: { theme: string }) {
+  console.log("Tema atual no componente:", theme);
   const [km, setKm] = useState("");
   const [l, setL] = useState("");
+  
   const avg = useMemo(() => {
     const k = parseFloat(km.replace(",", "."));
     const lit = parseFloat(l.replace(",", "."));
     if (!k || !lit) return null;
     return (k / lit).toFixed(1);
   }, [km, l]);
+
   return (
-    <div className="glass-card space-y-3 rounded-2xl p-4">
-      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Média de Combustível</h4>
+    <div className={`space-y-3 rounded-2xl p-4 border transition-colors ${
+      theme === "dark" 
+        ? "bg-[#121214] border-white/5" 
+        : "bg-white border-zinc-100 shadow-sm"
+    }`}>
+      <h4 className={`text-xs font-bold uppercase tracking-wider ${
+        theme === "dark" ? "text-muted-foreground" : "text-zinc-400"
+      }`}>
+        Média de Combustível
+      </h4>
+      
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Km percorridos"><Input value={km} onChange={(e) => setKm(e.target.value)} placeholder="420" inputMode="decimal" /></Field>
-        <Field label="Litros abastecidos"><Input value={l} onChange={(e) => setL(e.target.value)} placeholder="38" inputMode="decimal" /></Field>
+        <Field label="Km percorridos">
+          <Input 
+            value={km} 
+            onChange={(e) => setKm(e.target.value)} 
+            placeholder="420" 
+            inputMode="decimal" 
+            className={`${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"}`}
+          />
+        </Field>
+        <Field label="Litros abastecidos">
+          <Input 
+            value={l} 
+            onChange={(e) => setL(e.target.value)} 
+            placeholder="38" 
+            inputMode="decimal" 
+            className={`${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"}`}
+          />
+        </Field>
       </div>
+
       {avg && (
-        <div className="rounded-lg bg-secondary px-3 py-2 text-sm font-bold text-white">
-          Média: <span className="text-price">{avg} km/L</span>
+        <div className={`rounded-lg px-3 py-2 text-sm font-bold ${
+          theme === "dark" ? "bg-white/5 text-white" : "bg-zinc-100 text-zinc-900"
+        }`}>
+          Média: <span className="text-emerald-500">{avg} km/L</span>
         </div>
       )}
     </div>
@@ -1076,7 +1135,7 @@ function AverageCalculator() {
 /* ---------- ABASTECE+ ---------- */
 
 function PlusSection({
-  userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast,
+  userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme
 }: {
   userId: string | null;
   balance: number;
@@ -1086,6 +1145,7 @@ function PlusSection({
   refreshPoints: () => Promise<void>;
   requireAuth: (fn: () => void, m?: string) => void;
   fireToast: (m: string) => void;
+  theme: string; // <-- Tema injetado aqui
 }) {
   const rewards = useRewards();
   const [picked, setPicked] = useState<Reward | null>(null);
@@ -1126,14 +1186,20 @@ function PlusSection({
     <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2">
       
       {/* ESPAÇO PARA BANNER DE ANÚNCIOS (Substituindo Saldo e Histórico) */}
-      <div className="relative overflow-hidden rounded-[22px] border border-white/5 bg-[#161618] shadow-xl p-0.5">
-        <div className="flex h-36 w-full items-center justify-center rounded-[20px] border border-dashed border-white/20 bg-[#1a1a1d]">
+      <div className={`relative overflow-hidden rounded-[22px] border shadow-xl p-0.5 transition-colors ${
+        theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white shadow-zinc-100"
+      }`}>
+        <div className={`flex h-36 w-full items-center justify-center rounded-[20px] border border-dashed transition-colors ${
+          theme === "dark" ? "border-white/20 bg-[#1a1a1d]" : "border-zinc-300 bg-zinc-50"
+        }`}>
           <div className="text-center opacity-60 flex flex-col items-center">
             <span className="text-2xl mb-2">📢</span>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            <p className={`text-[11px] font-bold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>
               Espaço Publicitário
             </p>
-            <p className="text-[10px] mt-1 text-muted-foreground">Banner 300x100 ou equivalente</p>
+            <p className={`text-[10px] mt-1 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-400"}`}>
+              Banner 300x100 ou equivalente
+            </p>
           </div>
         </div>
       </div>
@@ -1144,7 +1210,9 @@ function PlusSection({
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-lg shadow-inner">
             🎁
           </span>
-          <h3 className="text-[13px] font-extrabold uppercase tracking-widest text-muted-foreground/80">
+          <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${
+            theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"
+          }`}>
             Prêmios Disponíveis
           </h3>
         </div>
@@ -1153,32 +1221,42 @@ function PlusSection({
           {rewards.map((r) => (
             <div 
               key={r.id} 
-              className="group relative flex flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[#161618] p-4 shadow-xl transition-all duration-300 hover:bg-[#1a1a1d] hover:border-emerald-500/30 hover:shadow-2xl"
+              className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-4 shadow-xl transition-all duration-300 hover:shadow-2xl hover:border-emerald-500/30 ${
+                theme === "dark" 
+                  ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d]" 
+                  : "bg-white border-zinc-200 hover:bg-zinc-50 shadow-zinc-100"
+              }`}
             >
               <div className="mb-3 text-3xl drop-shadow-md">{r.emoji ?? "🎁"}</div>
-              <h4 className="text-[13px] font-bold leading-tight text-white mb-1 transition-colors group-hover:text-emerald-400">
+              <h4 className={`text-[13px] font-bold leading-tight mb-1 transition-colors group-hover:text-emerald-500 ${
+                theme === "dark" ? "text-white" : "text-zinc-900"
+              }`}>
                 {r.nome}
               </h4>
-              <p className="mb-4 text-[11px] text-muted-foreground/80 line-clamp-2 h-8">
+              <p className={`mb-4 text-[11px] line-clamp-2 h-8 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
                 {r.descricao}
               </p>
               
-              <div className="mt-auto border-t border-white/5 pt-3">
+              <div className={`mt-auto border-t pt-3 ${theme === "dark" ? "border-white/5" : "border-zinc-100"}`}>
                 <div className="mb-3 flex flex-col">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">
+                  <span className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${
+                    theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"
+                  }`}>
                     Custo
                   </span>
-                  <span className="text-lg font-black tracking-tight text-white">
+                  <span className={`text-lg font-black tracking-tight ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
                     {r.custo_pontos} <span className="text-[10px] opacity-70">pts</span>
                   </span>
                 </div>
                 
                 <button
                   onClick={() => tryRedeem(r)}
-                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 ${
+                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 border ${
                     isPremium 
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] border border-emerald-500" 
-                      : "bg-white/5 text-muted-foreground border border-white/10 hover:bg-white/10 hover:text-white"
+                      ? "bg-emerald-500 text-white hover:bg-emerald-600 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] border-emerald-500" 
+                      : theme === "dark"
+                        ? "bg-white/5 text-muted-foreground border-white/10 hover:bg-white/10 hover:text-white"
+                        : "bg-zinc-50 text-zinc-500 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-700"
                   }`}
                 >
                   {isPremium ? (
@@ -1197,13 +1275,17 @@ function PlusSection({
 
       {/* PREMIUM LOCK MODAL */}
       <Dialog open={showLock} onOpenChange={setShowLock}>
-        <DialogContent className="max-w-sm rounded-[24px] border border-white/10 bg-[#161618] p-6 shadow-2xl">
+        <DialogContent className={`max-w-sm rounded-[24px] border p-6 shadow-2xl ${
+          theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
+        }`}>
           <DialogHeader className="text-center flex flex-col items-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-[0_0_20px_rgba(251,191,36,0.3)] text-white">
               <Crown className="h-8 w-8" />
             </div>
-            <DialogTitle className="text-xl font-black text-white">Resgate Exclusivo</DialogTitle>
-            <DialogDescription className="text-sm mt-2 text-muted-foreground">
+            <DialogTitle className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+              Resgate Exclusivo
+            </DialogTitle>
+            <DialogDescription className={`text-sm mt-2 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>
               Assine o abastece+ Premium e troque seus pontos por prêmios em postos parceiros.
             </DialogDescription>
           </DialogHeader>
@@ -1216,7 +1298,9 @@ function PlusSection({
             </Button>
             <Button 
               variant="outline" 
-              className="w-full h-12 rounded-xl border-white/10 bg-transparent text-white hover:bg-white/5 hover:text-white" 
+              className={`w-full h-12 rounded-xl bg-transparent transition-colors ${
+                theme === "dark" ? "border-white/10 text-white hover:bg-white/5" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+              }`} 
               onClick={() => setShowLock(false)}
             >
               Voltar
@@ -1227,29 +1311,37 @@ function PlusSection({
 
       {/* REDEEM SUCCESS MODAL */}
       <Dialog open={!!redeemCode} onOpenChange={(o) => !o && setRedeemCode(null)}>
-        <DialogContent className="max-w-sm rounded-[24px] border border-white/10 bg-[#161618] p-6 text-center shadow-2xl">
+        <DialogContent className={`max-w-sm rounded-[24px] border p-6 text-center shadow-2xl ${
+          theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
+        }`}>
           <DialogHeader className="flex flex-col items-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <DialogTitle className="text-xl font-black text-white">Resgate Realizado!</DialogTitle>
-            <DialogDescription className="text-sm mt-2 text-muted-foreground">
+            <DialogTitle className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+              Resgate Realizado!
+            </DialogTitle>
+            <DialogDescription className={`text-sm mt-2 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>
               Apresente o QR Code ou o código abaixo no posto para retirar seu prêmio.
             </DialogDescription>
           </DialogHeader>
           <div className="my-6 flex flex-col items-center justify-center gap-4">
             {redeemCode && (
-              <div className="rounded-2xl bg-white p-3 shadow-lg">
+              <div className="rounded-2xl bg-white p-3 shadow-lg border border-zinc-200">
                 <QRCodeSVG value={redeemCode} size={160} />
               </div>
             )}
-            <span className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xl font-mono font-bold tracking-widest text-emerald-400">
+            <span className={`rounded-xl border px-4 py-2 text-xl font-mono font-bold tracking-widest text-emerald-500 ${
+              theme === "dark" ? "bg-white/5 border-white/10" : "bg-emerald-50 border-emerald-500/20"
+            }`}>
               {redeemCode}
             </span>
           </div>
           <DialogFooter>
             <Button 
-              className="w-full h-12 rounded-xl bg-white/10 font-bold text-white hover:bg-white/20 border-0" 
+              className={`w-full h-12 rounded-xl font-bold border-0 transition-colors ${
+                theme === "dark" ? "bg-white/10 text-white hover:bg-white/20" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              }`} 
               onClick={() => setPicked(null)}
             >
               Fechar
