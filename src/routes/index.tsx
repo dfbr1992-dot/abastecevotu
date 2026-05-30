@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { InstallButton } from "@/components/InstallButton";
-import logoAbasteceVotu from "@/abastece.png";
+import logoBranca from "@/abastece.png";
+import logoPreta from "@/abastece2.png";
 import { AdCarousel } from "@/components/AdCarousel";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useAuth } from "@/hooks/use-auth";
@@ -42,6 +43,8 @@ import {
   CheckCircle2,
   Loader2,
   LogIn,
+  Sun,
+  Moon,
   Star,
   User,
   TrendingUp,
@@ -49,7 +52,7 @@ import {
   Camera,
   Users,
   Share2,
-  History
+  History,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -127,6 +130,29 @@ const servicos: Servico[] = [
 ];
 
 function Index() {
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    
+    // Altera a classe na raiz do HTML para o Tailwind aplicar o Dark/Light no resto do app
+    if (nextTheme === "light") {
+      document.documentElement.classList.remove("dark");
+    } else {
+      document.documentElement.classList.add("dark");
+    }
+  };
+  // Lógica inteligente do botão abastece+ do topo
+  const handleAbasteceMaisClick = () => {
+    if (user && isPremium) {
+      // Se tem conta E é assinante: vai para a tela de prêmios/benefícios
+      setSection("plus"); 
+    } else {
+      // Se não tem conta OU tem conta grátis: vai para a tela de planos
+      setSection("planos"); 
+    }
+  };
   const navigate = useNavigate();
   const { user, displayName, initials, signOut, loading } = useAuth();
   const userId = user?.id ?? null;
@@ -169,8 +195,8 @@ function Index() {
         <div className="absolute top-1/2 left-1/2 h-[250px] w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
         <div className="relative z-10 flex flex-col items-center gap-4 text-center">
           <div className="relative p-4">
-            <img 
-              src={logoAbasteceVotu} 
+           <img 
+              src={logoBranca} // <-- Força a branca aqui porque o fundo desse splash é sempre escuro
               alt="Abastece Votu Logo" 
               className="h-20 w-auto object-contain select-none"
             />
@@ -203,67 +229,115 @@ function Index() {
   // ... restante do código do return principal (header, content, nav...) segue igualzinho abaixo
 
   return (
-    <main className="flex min-h-[100dvh] items-stretch justify-center bg-background sm:items-center sm:p-4">
-      <InstallButton />
-      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-background sm:h-[860px] sm:max-w-[412px] sm:rounded-[36px] sm:border-[12px] sm:border-white/10 sm:shadow-2xl sm:shadow-black/50">
-        {/* Toast */}
-        <div
-          className={`pointer-events-none absolute left-4 right-4 z-[999] flex items-center gap-3 rounded-xl border border-white/10 border-l-4 border-l-primary bg-card px-4 py-3 text-white shadow-xl transition-transform duration-500 ${
-            toast ? "translate-y-[80px]" : "-translate-y-32"
-          }`}
-          style={{ top: 0 }}
-        >
-          <span className="text-lg">🔔</span>
-          <div className="text-xs">
-            <p className="font-bold uppercase tracking-wide">Aviso</p>
-            <p className="opacity-90">{toast}</p>
-          </div>
-        </div>
+  <main className={`flex min-h-[100dvh] items-stretch justify-center sm:items-center sm:p-4 transition-colors duration-200 ${
+    theme === "dark" ? "bg-[#0f111a] text-white" : "bg-zinc-100 text-zinc-900"
+  }`}>
+    <InstallButton />
+    <div className={`relative flex h-[100dvh] w-full flex-col overflow-hidden sm:h-[860px] transition-colors duration-200 shadow-2xl ${
+      theme === "dark" ? "bg-[#0b0f19]" : "bg-white"
+    }`}>
+      {/* Toast */}
 
         {/* App bar */}
-        <header className="glass-panel flex items-center justify-between border-b p-4">
+        <header className={`relative z-20 flex items-center justify-between border-b px-4 py-3 transition-colors duration-200 ${
+  theme === "dark" 
+    ? "border-white/5 bg-[#121214]/80 backdrop-blur-md" 
+    : "border-zinc-200 bg-white/95 backdrop-blur-md shadow-sm"
+}`}>
           <div className="flex items-center gap-2.5">
             <img
-              src={logoAbasteceVotu}
+              src={theme === "dark" ? `${logoBranca}?v=1` : `${logoPreta}?v=2`}
               alt="Abastece Votu — Seu melhor preço, sempre"
-              className="h-9 w-auto"
+              className="h-9 w-auto object-contain"
             />
           </div>
           {user ? (
             <div className="flex items-center gap-2">
               {isPremium && (
                 <button
-                  onClick={() => setSection("planos")}
-                  className="flex items-center gap-1 rounded-full bg-premium-gradient px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm"
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> Abastece+
-                </button>
+  onClick={handleAbasteceMaisClick}
+  className="flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 transition-all hover:bg-yellow-500/20"
+>
+  <Crown className="h-3.5 w-3.5 text-yellow-500" />
+  <span className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">
+    abastece+
+  </span>
+</button>
               )}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-1.5 rounded-full bg-secondary px-1 py-1 pr-2.5 text-[11px] font-bold text-foreground">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-                      {initials}
-                    </span>
-                    <span className="max-w-[90px] truncate">{displayName?.split(" ")[0] || "Perfil"}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuLabel className="truncate">{displayName}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSection("plus")}>
-                    <Sparkles className="w-4 h-4" /> abastece+
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      await signOut();
-                      fireToast("Você saiu da conta");
-                    }}
-                  >
-                    <LogOut className="w-4 h-4" /> Sair
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <button className={`flex items-center gap-2 rounded-full border px-1 py-1 pr-3 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-white/5" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80"}`}>
+      {/* Círculo com a Letra Inicial */}
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-500">
+        {displayName ? displayName.charAt(0).toUpperCase() : "U"}
+      </span>
+      {/* Nome do usuário */}
+      <span className={`max-w-[100px] truncate text-[12px] font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+        {displayName?.split(" ")[0] || "Perfil"}
+      </span>
+    </button>
+  </DropdownMenuTrigger>
+  
+  {/* O container agora muda de cor baseado no tema selecionado */}
+  <DropdownMenuContent 
+    align="end" 
+    className={`w-54 rounded-[20px] shadow-xl p-2 transition-colors duration-200 border ${theme === "dark" ? "text-white" : "text-zinc-900"}`}
+  >
+    <DropdownMenuLabel className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-400"}`}>
+      Minha Conta
+    </DropdownMenuLabel>
+    
+    <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+    
+   {/* Opção de Configurações */}
+          <DropdownMenuItem 
+            onClick={() => navigate({ to: "/meus-dados" })}
+            className={`flex items-center gap-2 rounded-xl cursor-pointer p-2 transition-colors ${
+              theme === "dark" ? "hover:bg-white/5" : "hover:bg-zinc-100"
+            }`}
+          >
+            <User className="h-4 w-4 text-zinc-400" />
+            <span className="text-sm font-medium">Meus Dados</span>
+          </DropdownMenuItem>
+
+    {/* NOVA CHAVE DE TEMA CLARO / ESCURO */}
+    <DropdownMenuItem 
+      onClick={(e) => {
+        e.preventDefault(); // Evita que o menu feche sozinho ao clicar na chave
+        toggleTheme();
+      }}
+      className={`flex items-center justify-between rounded-xl cursor-pointer p-2 transition-colors ${theme === "dark" ? "focus:bg-white/5" : "focus:bg-zinc-100"}`}
+    >
+      <div className="flex items-center gap-2">
+        {theme === "dark" ? (
+          <Sun className="h-4 w-4 text-yellow-500" />
+        ) : (
+          <Moon className="h-4 w-4 text-indigo-500" />
+        )}
+        <span className="text-sm font-medium">Aparência</span>
+      </div>
+      
+      {/* INTERRUPTOR VISUAL (SWITCH) */}
+      <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
+        <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md transition-all" />
+      </div>
+    </DropdownMenuItem>
+
+    <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+    
+    {/* BOTÃO DE SAIR */}
+    <DropdownMenuItem 
+      onClick={async () => {
+        await signOut();
+        fireToast("Você saiu da conta");
+      }}
+      className="flex items-center gap-2 rounded-xl cursor-pointer p-2 focus:bg-red-500/10 focus:text-red-400 text-red-400 transition-colors"
+    >
+      <LogOut className="h-4 w-4" />
+      <span className="text-sm font-bold">Sair da Conta</span>
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
             </div>
           ) : (
             <button
@@ -287,6 +361,7 @@ function Index() {
               sortBy={sortBy}
               setSortBy={setSortBy}
               confirmed={confirmed}
+              theme={theme}
               onConfirm={(name) =>
                 requireAuth(() => {
                   setConfirmed([...confirmed, name]);
@@ -424,8 +499,12 @@ function Index() {
           )}
         </div>
 
-        {/* Bottom nav — 4 tabs */}
-        <nav className="glass-panel absolute bottom-0 left-0 right-0 z-10 flex h-[64px] items-center justify-around border-t">
+      {/* Bottom nav — 4 tabs */}
+        <nav className={`absolute bottom-0 left-0 right-0 z-10 flex h-[64px] items-center justify-around border-t transition-colors duration-200 ${
+          theme === "dark"
+            ? "glass-panel border-white/5 text-white"
+            : "bg-white/95 border-zinc-200 text-zinc-600 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md"
+        }`}>
           <NavItem icon={<Home className="w-5 h-5" />} label="Início" active={section === "home"} onClick={() => setSection("home")} />
           <NavItem icon={<Car className="w-5 h-5" />} label="Meu Carro" active={section === "carro"} onClick={() => goTo("carro", true)} />
           <NavItem icon={<Wrench className="w-5 h-5" />} label="Serviços" active={section === "servicos"} onClick={() => setSection("servicos")} />
@@ -454,7 +533,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; labe
 /* ---------- HOME ---------- */
 
 function HomeSection({
-  cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm,
+cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm, theme,
 }: {
   cheapest: Posto;
   fireToast: (m: string) => void;
@@ -462,6 +541,7 @@ function HomeSection({
   fuel: Fuel; setFuel: (f: Fuel) => void;
   sortBy: SortBy; setSortBy: (s: SortBy) => void;
   confirmed: string[]; onConfirm: (name: string) => void;
+  theme: string;
 }) {
   return (
     <>
@@ -487,6 +567,7 @@ function HomeSection({
         setSortBy={setSortBy}
         confirmed={confirmed}
         onConfirm={onConfirm}
+        theme={theme}
       />
 
       <div className="mt-4">
@@ -499,12 +580,13 @@ function HomeSection({
 /* ---------- POSTOS ---------- */
 
 function PostosSection({
-  sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm,
+  sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm, theme
 }: {
   sortedPostos: any[];
   fuel: "etanol" | "gasolina" | "diesel"; setFuel: (f: "etanol" | "gasolina" | "diesel") => void;
   sortBy: "price" | "distance"; setSortBy: (s: "price" | "distance") => void;
   confirmed: string[]; onConfirm: (name: string) => void;
+  theme: string;
 }) {
   const [convPosto, setConvPosto] = useState<any | null>(null);
 
@@ -516,20 +598,30 @@ function PostosSection({
       
       {/* CABEÇALHO E FILTROS ESTILO FINTECH */}
       <div className="mb-5 space-y-3">
-        <h3 className="text-[13px] font-extrabold uppercase tracking-widest text-muted-foreground/80 pl-1">
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 transition-colors ${
+          theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"
+        }`}>
           Lista de Postos
         </h3>
         
         {/* Filtro de Combustível */}
-        <div className="flex gap-2 rounded-2xl bg-[#121214] p-1.5 border border-white/5">
+        <div className={`flex gap-2 rounded-2xl p-1.5 border transition-all duration-200 ${
+          theme === "dark" 
+            ? "bg-[#121214] border-white/5" 
+            : "bg-zinc-100 border-zinc-200/80"
+        }`}>
           {(["etanol", "gasolina", "diesel"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFuel(f)}
-              className={`flex-1 rounded-xl py-2 text-[12px] font-bold capitalize transition-all duration-300 ${
+              className={`flex-1 rounded-xl py-2 text-[12px] font-bold capitalize transition-all duration-200 ${
                 fuel === f
-                  ? "bg-white/10 text-white shadow-md border border-white/10"
-                  : "text-muted-foreground hover:bg-white/5 hover:text-white"
+                  ? theme === "dark"
+                    ? "bg-white/10 text-white shadow-md border border-white/10"
+                    : "bg-white text-zinc-900 shadow-sm border border-zinc-200"
+                  : theme === "dark"
+                    ? "text-muted-foreground hover:bg-white/5 hover:text-white"
+                    : "text-zinc-500 hover:bg-zinc-200/60 hover:text-zinc-900"
               }`}
             >
               {f}
@@ -539,22 +631,33 @@ function PostosSection({
 
         {/* Filtro de Ordenação */}
         <div className="flex gap-2">
+          {/* Botão Menor Preço */}
           <button
             onClick={() => setSortBy("price")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
               sortBy === "price"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white"
+                ? theme === "dark"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm"
+                : theme === "dark"
+                  ? "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white"
+                  : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
             }`}
           >
             📉 Menor Preço
           </button>
+
+          {/* Botão Mais Próximo */}
           <button
             onClick={() => setSortBy("distance")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-300 ${
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
               sortBy === "distance"
-                ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                : "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white"
+                ? theme === "dark"
+                  ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                  : "border-blue-200 bg-blue-50 text-blue-600 shadow-sm"
+                : theme === "dark"
+                  ? "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white"
+                  : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
             }`}
           >
             📍 Mais Próximo
@@ -562,7 +665,7 @@ function PostosSection({
         </div>
       </div>
 
-      {/* LISTA DE CARDS ALTA FIDELIDADE */}
+     {/* LISTA DE CARDS ALTA FIDELIDADE */}
       <div className="space-y-4">
         {sortedPostos.map((p) => {
           const isConfirmed = confirmed.includes(p.name);
@@ -570,14 +673,24 @@ function PostosSection({
           return (
             <article 
               key={p.name} 
-              className="relative flex flex-col rounded-[22px] border border-white/10 bg-[#161618] p-4 shadow-xl transition-all hover:bg-[#1a1a1d] hover:border-white/20"
+              className={`relative flex flex-col rounded-[22px] border p-4 transition-all duration-200 ${
+                theme === "dark"
+                  ? "border-white/10 bg-[#161618] shadow-xl hover:bg-[#1a1a1d] hover:border-white/20"
+                  : "border-zinc-200 bg-white shadow-md hover:shadow-lg hover:border-zinc-300"
+              }`}
             >
               {/* Topo: Informações do Posto + Botão Conveniência */}
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="min-w-0">
-                  <h4 className="truncate text-base font-bold text-white">{p.name}</h4>
-                  <p className="truncate text-[11px] text-muted-foreground">{p.address}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-muted-foreground/60">{p.hours}</p>
+                  <h4 className={`truncate text-base font-bold transition-colors ${
+                    theme === "dark" ? "text-white" : "text-zinc-900"
+                  }`}>{p.name}</h4>
+                  <p className={`truncate text-[11px] transition-colors ${
+                    theme === "dark" ? "text-zinc-400" : "text-zinc-500"
+                  }`}>{p.address}</p>
+                  <p className={`mt-0.5 text-[10px] font-semibold transition-colors ${
+                    theme === "dark" ? "text-zinc-500/80" : "text-zinc-400/90"
+                  }`}>{p.hours}</p>
                 </div>
                 
                 {p.produtos && (
@@ -593,48 +706,77 @@ function PostosSection({
               {/* Meio: Tipografia de Preço Imponente */}
               <div className="flex items-end justify-between py-2">
                 <div>
-                  <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-0.5">
+                  <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 transition-colors ${
+                    theme === "dark" ? "text-zinc-500" : "text-zinc-400"
+                  }`}>
                     Preço {fuel}
                   </span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-sm font-bold text-emerald-500/70">R$</span>
-                    <span className="text-4xl font-black tracking-tighter text-emerald-400 drop-shadow-sm">
+                    <span className={`text-sm font-bold transition-colors ${
+                      theme === "dark" ? "text-emerald-500/70" : "text-emerald-600/80"
+                    }`}>R$</span>
+                    <span className={`text-4xl font-black tracking-tighter drop-shadow-sm transition-colors ${
+                      theme === "dark" ? "text-emerald-400" : "text-emerald-600"
+                    }`}>
                       {fmt(p.prices[fuel])}
                     </span>
                   </div>
                 </div>
                 <div className="mb-1 text-right">
-                  <span className="rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-bold text-muted-foreground border border-white/5">
+                  <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border transition-colors ${
+                    theme === "dark"
+                      ? "bg-white/5 border-white/5 text-zinc-400"
+                      : "bg-zinc-100 border-zinc-200 text-zinc-600"
+                  }`}>
                     {p.distance} km
                   </span>
                 </div>
               </div>
 
               {/* Rodapé: Validação e Sistema de Avaliação (Like/Dislike) */}
-              <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
+              <div className={`mt-3 flex items-center justify-between border-t pt-3 transition-colors ${
+                theme === "dark" ? "border-white/5" : "border-zinc-100"
+              }`}>
                 <div className="flex flex-col text-[10px]">
-                  <span className="text-muted-foreground/60">Verificado por {p.verifiedBy}</span>
-                  {isConfirmed && <span className="font-bold text-emerald-400 mt-0.5">✓ Você validou hoje</span>}
+                  <span className={`transition-colors ${
+                    theme === "dark" ? "text-zinc-500" : "text-zinc-400"
+                  }`}>Verificado por {p.verifiedBy}</span>
+                  {isConfirmed && (
+                    <span className={`font-bold mt-0.5 transition-colors ${
+                      theme === "dark" ? "text-emerald-400" : "text-emerald-600"
+                    }`}>✓ Você validou hoje</span>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
+                  {/* Botão de Like */}
                   <button
                     disabled={isConfirmed}
                     onClick={() => onConfirm(p.name)}
                     className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
                       isConfirmed 
-                        ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 scale-105" 
-                        : "bg-white/5 border-white/10 text-muted-foreground hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400"
+                        ? theme === "dark"
+                          ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 scale-105" 
+                          : "bg-emerald-50 border-emerald-200 text-emerald-600 scale-105 shadow-sm"
+                        : theme === "dark"
+                          ? "bg-white/5 border-white/10 text-muted-foreground hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400"
+                          : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-600 shadow-sm"
                     }`}
                     title="Preço correto (Like)"
                   >
                     <span className="text-lg">👍</span>
                   </button>
+
+                  {/* Botão de Dislike */}
                   <button
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground transition-all hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
+                      theme === "dark"
+                        ? "border-white/10 bg-white/5 text-muted-foreground hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 shadow-sm"
+                    }`}
                     title="Preço incorreto (Dislike)"
                     onClick={() => {
-                      // Você pode adicionar uma função específica para o dislike no futuro
+                      // Espaço para futura função de dislike
                     }}
                   >
                     <span className="text-lg">👎</span>

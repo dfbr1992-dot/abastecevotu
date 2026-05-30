@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MeusDadosRouteImport } from './routes/meus-dados'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,6 +19,11 @@ import { Route as AdminPrecosRouteImport } from './routes/admin.precos'
 import { Route as AdminPostosRouteImport } from './routes/admin.postos'
 import { Route as AdminBannersRouteImport } from './routes/admin.banners'
 
+const MeusDadosRoute = MeusDadosRouteImport.update({
+  id: '/meus-dados',
+  path: '/meus-dados',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
+  '/meus-dados': typeof MeusDadosRoute
   '/admin/banners': typeof AdminBannersRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/meus-dados': typeof MeusDadosRoute
   '/admin/banners': typeof AdminBannersRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
+  '/meus-dados': typeof MeusDadosRoute
   '/admin/banners': typeof AdminBannersRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
+    | '/meus-dados'
     | '/admin/banners'
     | '/admin/postos'
     | '/admin/precos'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/meus-dados'
     | '/admin/banners'
     | '/admin/postos'
     | '/admin/precos'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/login'
+    | '/meus-dados'
     | '/admin/banners'
     | '/admin/postos'
     | '/admin/precos'
@@ -125,10 +137,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MeusDadosRoute: typeof MeusDadosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/meus-dados': {
+      id: '/meus-dados'
+      path: '/meus-dados'
+      fullPath: '/meus-dados'
+      preLoaderRoute: typeof MeusDadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -210,6 +230,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
+  MeusDadosRoute: MeusDadosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
