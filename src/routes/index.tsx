@@ -94,24 +94,6 @@ const convPadrao: Produto[] = [
   { name: "Chocolate", price: "R$ 4,00" },
 ];
 
-const postos: Posto[] = [
-  { name: "Posto Avenida", address: "Av. Brasil, 1200 — Centro", hours: "Aberto 24h", prices: { etanol: 3.27, gasolina: 5.49, diesel: 5.89 }, distance: 1.2, verifiedBy: 12, produtos: convPadrao },
-  { name: "Posto São José", address: "R. Amazonas, 540 — Pozzobon", hours: "06h — 23h", prices: { etanol: 3.34, gasolina: 5.55, diesel: 5.95 }, distance: 2.8, verifiedBy: 8, produtos: [
-    { name: "Café Expresso", price: "R$ 4,00" },
-    { name: "Coxinha de Frango", price: "R$ 8,00" },
-    { name: "Suco Natural 300ml", price: "R$ 9,00" },
-    { name: "Sanduíche Natural", price: "R$ 12,00" },
-    { name: "Barra de Cereal", price: "R$ 3,50" },
-  ] },
-  { name: "Auto Posto Cidade", address: "Av. Nasser Marão, 88", hours: "Aberto 24h", prices: { etanol: 3.39, gasolina: 5.59, diesel: 5.99 }, distance: 0.6, verifiedBy: 5, produtos: [
-    { name: "Café Expresso", price: "R$ 4,50" },
-    { name: "Pão de Queijo", price: "R$ 5,50" },
-    { name: "Energético 250ml", price: "R$ 10,00" },
-    { name: "Água Mineral 500ml", price: "R$ 3,50" },
-    { name: "Biscoito Recheado", price: "R$ 4,00" },
-  ] },
-];
-
 const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 
 type Servico = {
@@ -123,80 +105,130 @@ type Servico = {
   distance: number;
 };
 
-const servicos: Servico[] = [
-  { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4 },
-  { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1 },
-  { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9 },
+
+// 2. Seus dados (agora com os campos novos)
+const dadosServicos: Servico[] = [
+  { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4, destaque: true, ordem: 2, whatsapp: "5517999999999" },
+  { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1, destaque: false, ordem: 0, whatsapp: "5517999999999" },
+  { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9, destaque: true, ordem: 1, whatsapp: "5517999999999" },
 ];
 
+// 3. Lógica para ordenar: Destaques primeiro, depois quem tem "ordem" maior
+const servicos = [...dadosServicos].sort((a, b) => {
+  if (a.destaque && !b.destaque) return -1;
+  if (!a.destaque && b.destaque) return 1;
+  return (b.ordem || 0) - (a.ordem || 0);
+});
+const agendarViaWhatsApp = (servico: Servico) => {
+  const numero = servico.whatsapp || "5517900000000"; // Fallback de segurança
+  const texto = `Olá! Vi o serviço de *${servico.name}* no App e gostaria de agendar.`;
+  const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+  
+  // Abre o WhatsApp em uma nova aba/janela
+  window.open(url, '_blank');
+};
+
 function Index() {
+  // 1. ESTADOS PRINCIPAIS
+  const [postos, setPostos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user, displayName, initials, signOut, loading: authLoading } = useAuth(); 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const navigate = useNavigate();
+  const agendarViaWhatsApp = (servico: any) => {
+  // Substitua pelo fallback do seu número ou lógica se necessário
+  const numero = servico.whatsapp || "5517999999999"; 
+  const texto = `Olá! Vi o serviço de *${servico.name}* no App Abastece Votu e gostaria de agendar.`;
+  const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
+};
+
+  // 2. BUSCA DE DADOS DO BANCO (Movido para dentro do componente!)
+  useEffect(() => {
+    async function fetchData() {
+      const { data } = await supabase.from('postos').select('*, precos(*)').eq('ativo', true);
+      if (data) {
+        const formatted = data.map(p => ({
+          ...p,
+          name: p.nome,
+          address: p.endereco,
+          hours: `${p.horario_abertura} — ${p.horario_fechamento}`,
+          prices: {
+            etanol: p.precos?.find((pr: any) => pr.combustivel === 'etanol')?.valor || 0,
+            gasolina: p.precos?.find((pr: any) => pr.combustivel === 'gasolina')?.valor || 0,
+            diesel: p.precos?.find((pr: any) => pr.combustivel === 'diesel')?.valor || 0
+          }
+        }));
+        setPostos(formatted);
+      }
+      setLoading(false);
+    }
+    fetchData();
+  }, []);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
-    
-    // Altera a classe na raiz do HTML para o Tailwind aplicar o Dark/Light no resto do app
     if (nextTheme === "light") {
       document.documentElement.classList.remove("dark");
     } else {
       document.documentElement.classList.add("dark");
     }
   };
-  // Lógica inteligente do botão abastece+ do topo
-  const handleAbasteceMaisClick = () => {
-    if (user && isPremium) {
-      // Se tem conta E é assinante: vai para a tela de prêmios/benefícios
-      setSection("plus"); 
-    } else {
-      // Se não tem conta OU tem conta grátis: vai para a tela de planos
-      setSection("planos"); 
-    }
-  };
-  const navigate = useNavigate();
-  const { user, displayName, initials, signOut, loading } = useAuth();
-  const userId = user?.id ?? null;
 
+  // 3. OUTROS ESTADOS E HOOKS
+  const userId = user?.id ?? null;
   const [section, setSection] = useState<Section>("home");
   const [showPointsPanel, setShowPointsPanel] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [fuel, setFuel] = useState<Fuel>("etanol");
   const [sortBy, setSortBy] = useState<SortBy>("price");
   const [confirmed, setConfirmed] = useLocalStorage<string[]>("abastece_confirmed_today", []);
-  
-  // Controle de Splash Screen Premium
   const [showSplash, setShowSplash] = useState(true);
 
   const { entries, balance, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
 
-  // 👑 TODOS OS HOOKS DEVEM FICAR AQUI NO TOPO
+  const handleAbasteceMaisClick = () => {
+    if (user && isPremium) {
+      setSection("plus"); 
+    } else {
+      setSection("planos"); 
+    }
+  };
+
+  // Controle de Splash Screen Premium ajustado
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !authLoading) {
       const timer = setTimeout(() => {
         setShowSplash(false);
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [loading]);
+  }, [loading, authLoading]);
 
+  // Prevenção de quebra caso os postos ainda estejam vazios
   const sortedPostos = useMemo(() => {
+    if (postos.length === 0) return [];
     const copy = [...postos];
-    copy.sort((a, b) => (sortBy === "price" ? a.prices[fuel] - b.prices[fuel] : a.distance - b.distance));
+    copy.sort((a, b) => (sortBy === "price" ? (a.prices?.[fuel] || 0) - (b.prices?.[fuel] || 0) : (a.distance || 0) - (b.distance || 0)));
     return copy;
-  }, [fuel, sortBy]);
+  }, [fuel, sortBy, postos]);
 
-  const cheapest = useMemo(() => [...postos].sort((a, b) => a.prices.etanol - b.prices.etanol)[0], []);
+  const cheapest = useMemo(() => {
+    if (postos.length === 0) return null;
+    return [...postos].sort((a, b) => (a.prices?.etanol || 0) - (b.prices?.etanol || 0))[0];
+  }, [postos]);
 
-  // 🛑 OS RETORNOS CONDICIONAIS DE TELA SÓ ENTRAN DAQUI PARA BAIXO
-  if (loading || showSplash) {
+  // 4. TELA DE CARREGAMENTO (Unificada com o Splash)
+  if (loading || authLoading || showSplash) {
     return (
       <div className="relative flex min-h-[100dvh] items-center justify-center bg-[#0B0F19] p-4 overflow-hidden">
         <div className="absolute top-1/2 left-1/2 h-[250px] w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
         <div className="relative z-10 flex flex-col items-center gap-4 text-center">
           <div className="relative p-4">
            <img 
-              src={logoBranca} // <-- Força a branca aqui porque o fundo desse splash é sempre escuro
+              src={logoBranca} 
               alt="Abastece Votu Logo" 
               className="h-20 w-auto object-contain select-none"
             />
@@ -387,6 +419,149 @@ function Index() {
 {section === "servicos" && (
   <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
     
+    {/* 1. DECLARAÇÃO DE DADOS E FUNÇÕES INTERNAS */}
+    {(() => {
+      // Interface local para garantir que o TypeScript não reclame de tipos
+      interface AppServico {
+        name: string;
+        address: string;
+        hours: string;
+        price: string;
+        categoria: string;
+        distance: number;
+        destaque?: boolean;
+        ordem?: number;
+        whatsapp?: string;
+      }
+
+      // Dados brutos dos serviços
+      const dadosBrutos: AppServico[] = [
+        { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4, destaque: true, ordem: 2, whatsapp: "5517999999999" },
+        { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1, destaque: false, ordem: 0, whatsapp: "5517999999999" },
+        { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9, destaque: true, ordem: 1, whatsapp: "5517999999999" },
+      ];
+
+      // Ordenação automática (Destaques no topo)
+      const listaOrdenada = [...dadosBrutos].sort((a, b) => {
+        if (a.destaque && !b.destaque) return -1;
+        if (!a.destaque && b.destaque) return 1;
+        return (b.ordem || 0) - (a.ordem || 0);
+      });
+
+      // Função de disparo do WhatsApp isolada no escopo
+      const dispararWhatsApp = (s: AppServico) => {
+        const numero = s.whatsapp || "5517999999999";
+        const texto = `Olá! Vi o serviço de *${s.name}* no App Abastece Votu e gostaria de agendar.`;
+        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+      };
+
+      const isDark = theme === "dark";
+
+      return (
+        <>
+          {/* CABEÇALHO */}
+          <div className="flex items-center gap-2 mb-5 pl-1">
+            <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${isDark ? "bg-white/10" : "bg-zinc-100"}`}>
+              🛠️
+            </span>
+            <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${isDark ? "text-muted-foreground/80" : "text-zinc-500"}`}>
+              Serviços Automotivos
+            </h3>
+          </div>
+
+          {/* LISTA DE SERVIÇOS */}
+          <div className="space-y-4">
+            {listaOrdenada.map((s) => {
+              // Ajuste dinâmico de cores baseado no Destaque e Tema
+              const cardClass = s.destaque
+                ? isDark
+                  ? "bg-[#1a1a1d] border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:border-amber-400/60"
+                  : "bg-amber-50/40 border-amber-300 shadow-amber-100 hover:border-amber-400"
+                : isDark
+                  ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d] hover:border-white/20"
+                  : "bg-white border-zinc-200 hover:border-zinc-300 shadow-zinc-100";
+
+              const titleClass = s.destaque
+                ? isDark ? "text-amber-400" : "text-amber-700"
+                : isDark ? "text-white group-hover:text-blue-400" : "text-zinc-900 group-hover:text-blue-500";
+
+              const btnClass = s.destaque
+                ? isDark
+                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500 hover:text-white"
+                  : "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-500 hover:text-white"
+                : isDark
+                  ? "bg-white/5 text-white border-white/10 hover:bg-blue-500 hover:border-blue-500"
+                  : "bg-zinc-50 text-blue-600 border-zinc-200 hover:bg-blue-500 hover:border-blue-500 hover:text-white";
+
+              return (
+                <article
+                  key={s.name}
+                  className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:shadow-2xl ${cardClass}`}
+                >
+                  {/* Etiqueta de Destaque */}
+                  {s.destaque && (
+                    <div className="absolute top-0 right-0 rounded-bl-xl bg-gradient-to-r from-amber-400 to-amber-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md z-10">
+                      ⭐ Destaque
+                    </div>
+                  )}
+
+                  {/* Topo: Nome, Endereço e Categoria */}
+                  <div className="flex items-start justify-between gap-3 mb-3 mt-1">
+                    <div className="min-w-0">
+                      <h4 className={`truncate text-base font-bold transition-colors ${titleClass}`}>
+                        {s.name}
+                      </h4>
+                      <p className={`truncate text-[11px] ${isDark ? "text-muted-foreground" : "text-zinc-500"}`}>{s.address}</p>
+                      <p className={`mt-1 text-[10px] font-semibold ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>{s.hours}</p>
+                    </div>
+
+                    <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-500 border border-blue-500/20">
+                      {s.categoria}
+                    </span>
+                  </div>
+
+                  {/* Meio: Preço e Distância */}
+                  <div className="flex items-end justify-between py-2">
+                    <div>
+                      <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>
+                        Valor Estimado
+                      </span>
+                      <div className={`text-2xl font-black tracking-tight drop-shadow-sm ${isDark ? "text-white" : "text-zinc-900"}`}>
+                        {s.price}
+                      </div>
+                    </div>
+                    <div className="mb-1 text-right">
+                      <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${isDark ? "bg-white/5 text-muted-foreground border-white/5" : "bg-zinc-50 text-zinc-600 border-zinc-200"}`}>
+                        {s.distance} km
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Rodapé: Botão */}
+                  <div className={`mt-3 border-t pt-4 ${isDark ? "border-white/5" : "border-zinc-100"}`}>
+                    <button
+                      onClick={() => requireAuth(() => {
+                        fireToast(`${s.name} agendado!`);
+                        dispararWhatsApp(s);
+                      }, "Faça login para agendar")}
+                      className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold uppercase tracking-wider border transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98] ${btnClass}`}
+                    >
+                      📅 Agendar no WhatsApp
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
+      );
+    })()}
+
+  </section>
+)}
+{section === "servicos" && (
+  <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
+    
     {/* CABEÇALHO */}
     <div className="flex items-center gap-2 mb-5 pl-1">
       <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>
@@ -399,114 +574,84 @@ function Index() {
 
     {/* LISTA DE SERVIÇOS */}
     <div className="space-y-4">
-      {servicos.map((s) => (
-        <article 
-          key={s.name} 
-          className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:shadow-2xl ${
-            theme === "dark" 
-              ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d] hover:border-white/20" 
-              : "bg-white border-zinc-200 hover:border-zinc-300 shadow-zinc-100"
-          }`}
-        >
-          {/* Topo: Nome, Endereço e Categoria */}
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="min-w-0">
-              <h4 className={`truncate text-base font-bold transition-colors group-hover:text-blue-500 ${
-                theme === "dark" ? "text-white group-hover:text-blue-400" : "text-zinc-900"
-              }`}>
-                {s.name}
-              </h4>
-              <p className={`truncate text-[11px] ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>{s.address}</p>
-              <p className={`mt-1 text-[10px] font-semibold ${theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"}`}>{s.hours}</p>
-            </div>
-            
-            {/* Badge da Categoria */}
-            <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-500 border border-blue-500/20">
-              {s.categoria}
-            </span>
-          </div>
+      {[
+        { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4, destaque: true, whatsapp: "5517999999999" },
+        { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9, destaque: true, whatsapp: "5517999999999" },
+        { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1, destaque: false, whatsapp: "5517999999999" }
+      ].map((s) => {
+        const isDark = theme === "dark";
+        
+        const cardStyle = s.destaque 
+          ? isDark ? "bg-[#1a1a1d] border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:border-amber-400/60" : "bg-amber-50/40 border-amber-300 shadow-amber-100 hover:border-amber-400"
+          : isDark ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d] hover:border-white/20" : "bg-white border-zinc-200 hover:border-zinc-300 shadow-zinc-100";
 
-          {/* Meio: Preço e Distância */}
-          <div className="flex items-end justify-between py-2">
-            <div>
-              <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${
-                theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"
-              }`}>
-                Valor Estimado
+        const titleStyle = s.destaque
+          ? isDark ? "text-amber-400" : "text-amber-700"
+          : isDark ? "text-white group-hover:text-blue-400" : "text-zinc-900 group-hover:text-blue-500";
+
+        const btnStyle = s.destaque
+          ? isDark ? "bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500 hover:text-white" : "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-500 hover:text-white"
+          : isDark ? "bg-white/5 text-white border-white/10 hover:bg-blue-500 hover:border-blue-500" : "bg-zinc-50 text-blue-600 border-zinc-200 hover:bg-blue-500 hover:border-blue-500 hover:text-white";
+
+        return (
+          <article 
+            key={s.name} 
+            className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:shadow-2xl ${cardStyle}`}
+          >
+            {s.destaque && (
+              <div className="absolute top-0 right-0 rounded-bl-xl bg-gradient-to-r from-amber-400 to-amber-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md z-10">
+                ⭐ Destaque
+              </div>
+            )}
+
+            <div className="flex items-start justify-between gap-3 mb-3 mt-1">
+              <div className="min-w-0">
+                <h4 className={`truncate text-base font-bold transition-colors ${titleStyle}`}>
+                  {s.name}
+                </h4>
+                <p className={`truncate text-[11px] ${isDark ? "text-muted-foreground" : "text-zinc-500"}`}>{s.address}</p>
+                <p className={`mt-1 text-[10px] font-semibold ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>{s.hours}</p>
+              </div>
+              <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-500 border border-blue-500/20">
+                {s.categoria}
               </span>
-              <div className={`text-2xl font-black tracking-tight drop-shadow-sm ${
-                theme === "dark" ? "text-white" : "text-zinc-900"
-              }`}>
-                {s.price}
+            </div>
+
+            <div className="flex items-end justify-between py-2">
+              <div>
+                <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>
+                  Valor Estimado
+                </span>
+                <div className={`text-2xl font-black tracking-tight drop-shadow-sm ${isDark ? "text-white" : "text-zinc-900"}`}>
+                  {s.price}
+                </div>
+              </div>
+              <div className="mb-1 text-right">
+                <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${isDark ? "bg-white/5 text-muted-foreground border-white/5" : "bg-zinc-50 text-zinc-600 border-zinc-200"}`}>
+                  {s.distance} km
+                </span>
               </div>
             </div>
-            <div className="mb-1 text-right">
-              <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${
-                theme === "dark" ? "bg-white/5 text-muted-foreground border-white/5" : "bg-zinc-50 text-zinc-600 border-zinc-200"
-              }`}>
-                {s.distance} km
-              </span>
-            </div>
-          </div>
 
-          {/* Rodapé: Botão de Agendamento Full-Width */}
-          <div className={`mt-3 border-t pt-4 ${theme === "dark" ? "border-white/5" : "border-zinc-100"}`}>
-            <button
-              onClick={() => requireAuth(() => fireToast(`${s.name} agendado!`), "Faça login para agendar")}
-              className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold uppercase tracking-wider border transition-all hover:bg-blue-500 hover:border-blue-500 hover:text-white hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98] ${
-                theme === "dark" 
-                  ? "bg-white/5 text-white border-white/10" 
-                  : "bg-zinc-50 text-blue-600 border-zinc-200"
-              }`}
-            >
-              📅 Agendar Serviço
-            </button>
-          </div>
-        </article>
-      ))}
+            <div className={`mt-3 border-t pt-4 ${isDark ? "border-white/5" : "border-zinc-100"}`}>
+              <button
+                onClick={() => requireAuth(() => {
+                  fireToast(`${s.name} agendado!`);
+                  const numero = s.whatsapp || "5517999999999";
+                  const texto = `Olá! Vi o serviço de *${s.name}* no App Abastece Votu e gostaria de agendar.`;
+                  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+                }, "Faça login para agendar")}
+                className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold uppercase tracking-wider border transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98] ${btnStyle}`}
+              >
+                📅 Agendar no WhatsApp
+              </button>
+            </div>
+          </article>
+        );
+      })}
     </div>
 
   </section>
-)}
-          {section === "planos" && (
-  <div className="flex flex-col items-center justify-center p-6 bg-[#0f111a] min-h-screen">
-    <h1 className="text-3xl font-black text-white mb-2 text-center">Potencialize sua economia com o Abastece+</h1>
-    <p className="text-muted-foreground text-center mb-10 max-w-sm">Escolha o plano ideal para o seu perfil e destrave ferramentas inteligentes.</p>
-    
-    <div className="grid md:grid-cols-2 gap-6 w-full max-w-4xl">
-      {/* CARD GRÁTIS */}
-      <div className="border border-white/10 bg-[#161618] rounded-2xl p-6">
-        <h2 className="text-xl font-bold text-white">Comunidade</h2>
-        <p className="text-3xl font-black text-white my-4">R$ 0 <span className="text-sm font-normal">/sempre</span></p>
-        <ul className="space-y-3 mb-6 text-sm text-white/70">
-          <li>✓ Lista de postos por preço</li>
-          <li>✓ Mapa interativo</li>
-          <li>✓ Histórico básico</li>
-          <li>✓ Colaboração</li>
-        </ul>
-        <button onClick={() => setSection("home")} className="w-full py-3 rounded-xl border border-white/10 text-white font-bold">
-          Acessar Versão Grátis
-        </button>
-      </div>
-
-      {/* CARD PREMIUM */}
-      <div className="border-2 border-purple-500 bg-[#161618] rounded-2xl p-6 relative">
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase">Mais Assinado</div>
-        <h2 className="text-xl font-bold text-white mt-2">Abastece+ Pro</h2>
-        <p className="text-3xl font-black text-white my-4">R$ 9,90 <span className="text-sm font-normal">/mês</span></p>
-        <ul className="space-y-3 mb-6 text-sm text-white/70">
-          <li>✓ Todos os recursos Comunidade</li>
-          <li>✓ Alertas em tempo real</li>
-          <li>✓ Gráficos de tendência</li>
-          <li>✓ Vantagens exclusivas</li>
-          <li>✓ Suporte e sem anúncios</li>
-        </ul>
-        <button className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700">
-          Assinar e Ativar no App
-        </button>
-      </div>
-    </div>
-  </div>
 )}
 
           {section === "plus" && (
@@ -558,7 +703,7 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; labe
 /* ---------- HOME ---------- */
 
 function HomeSection({
-cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm, theme,
+  cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm, theme,
 }: {
   cheapest: Posto;
   fireToast: (m: string) => void;
@@ -570,9 +715,14 @@ cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, 
 }) {
   return (
     <>
-      <section className="mt-1 mb-4 rounded-3xl bg-premium-gradient p-5 text-white shadow-lg shadow-blue-900/30">
-        <h2 className="mb-1 text-2xl font-extrabold leading-tight">Combustível mais barato da cidade</h2>
-        <p className="mb-4 text-xs opacity-90">Compare preços em tempo real validados pela comunidade.</p>
+      <section className="mt-1 mb-4 flex flex-col gap-3 rounded-3xl bg-premium-gradient p-4 text-white shadow-lg shadow-blue-900/30">
+        
+        {/* Parte 1: Novo Carrossel Master Top substituindo o texto */}
+        <div className="w-full overflow-hidden rounded-2xl border border-white/10 shadow-sm">
+          <AdCarousel onAdClick={() => fireToast("Anúncio Top Premium clicado!")} />
+        </div>
+
+        {/* Parte 2: Indicador do Combustível Mais Barato (Mantido como estava) */}
         <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/20 px-4 py-3 backdrop-blur">
           <span className="text-xl">⛽</span>
           <div>
@@ -825,13 +975,14 @@ function PostosSection({
             </DialogDescription>
           </DialogHeader>
           <ul className="my-2 divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5 px-4 py-2">
-            {convPosto?.produtos?.map((prod: any) => (
-              <li key={prod.name} className="flex items-center justify-between py-3">
-                <span className="text-sm font-semibold text-white/90">{prod.name}</span>
-                <span className="text-sm font-black text-emerald-400">{prod.price}</span>
-              </li>
-            ))}
-          </ul>
+  {/* Aqui estamos exibindo os preços buscados do banco */}
+  {Object.entries(convPosto?.prices || {}).map(([combustivel, preco]) => (
+    <li key={combustivel} className="flex items-center justify-between py-3">
+      <span className="text-sm font-semibold text-white/90 capitalize">{combustivel}</span>
+      <span className="text-sm font-black text-emerald-400">R$ {preco.toFixed(2).replace('.', ',')}</span>
+    </li>
+  ))}
+</ul>
           <DialogFooter>
             <button 
               className="w-full rounded-xl bg-white/10 py-2.5 text-sm font-bold text-white transition hover:bg-white/20"
