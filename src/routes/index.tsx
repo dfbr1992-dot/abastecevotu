@@ -98,52 +98,34 @@ const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 
 type Servico = {
   name: string;
-  address: string;
-  hours: string;
+  address?: string;
+  hours?: string;
   price: string;
   categoria: string;
   distance: number;
-};
-
-
-// 2. Seus dados (agora com os campos novos)
-const dadosServicos: Servico[] = [
-  { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4, destaque: true, ordem: 2, whatsapp: "5517999999999" },
-  { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1, destaque: false, ordem: 0, whatsapp: "5517999999999" },
-  { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9, destaque: true, ordem: 1, whatsapp: "5517999999999" },
-];
-
-// 3. Lógica para ordenar: Destaques primeiro, depois quem tem "ordem" maior
-const servicos = [...dadosServicos].sort((a, b) => {
-  if (a.destaque && !b.destaque) return -1;
-  if (!a.destaque && b.destaque) return 1;
-  return (b.ordem || 0) - (a.ordem || 0);
-});
-const agendarViaWhatsApp = (servico: Servico) => {
-  const numero = servico.whatsapp || "5517900000000"; // Fallback de segurança
-  const texto = `Olá! Vi o serviço de *${servico.name}* no App e gostaria de agendar.`;
-  const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
-  
-  // Abre o WhatsApp em uma nova aba/janela
-  window.open(url, '_blank');
+  destaque?: boolean;
+  ordem?: number;
+  whatsapp?: string;
 };
 
 function Index() {
   // 1. ESTADOS PRINCIPAIS
   const [postos, setPostos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dadosServicos, setDadosServicos] = useState<Servico[]>([]);
   const { user, displayName, initials, signOut, loading: authLoading } = useAuth(); 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const navigate = useNavigate();
-  const agendarViaWhatsApp = (servico: any) => {
-  // Substitua pelo fallback do seu número ou lógica se necessário
-  const numero = servico.whatsapp || "5517999999999"; 
-  const texto = `Olá! Vi o serviço de *${servico.name}* no App Abastece Votu e gostaria de agendar.`;
-  const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
-  window.open(url, '_blank');
-};
 
-  // 2. BUSCA DE DADOS DO BANCO (Movido para dentro do componente!)
+  // Função de agendamento unificada e trazida para dentro do componente
+  const agendarViaWhatsApp = (servico: Servico) => {
+    const numero = servico.whatsapp || "5517900000000"; 
+    const texto = `Olá! Vi o serviço de *${servico.name}* no App Abastece Votu e gostaria de agendar.`;
+    const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
+  };
+
+  // 2. BUSCA DE DADOS DO BANCO
   useEffect(() => {
     async function fetchData() {
       const { data } = await supabase.from('postos').select('*, precos(*)').eq('ativo', true);
@@ -165,6 +147,44 @@ function Index() {
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    async function buscarServicos() {
+      const { data, error } = await supabase
+        .from('servicos')
+        .select('nome_servico, empresa_nome, endereco, horario, preco, categoria, ativo')
+        .eq('ativo', true);
+
+      if (data) {
+        // Mapeamos os dados que vieram do banco para o formato que seu componente espera
+        const formatados = data.map(s => ({
+        name: s.nome_servico,
+        empresa_nome: s.empresa_nome, // <-- Certifique-se de adicionar isso
+        address: s.endereco,
+        hours: s.horario,
+        price: s.preco,
+        categoria: s.categoria
+        }));
+        setDadosServicos(formatados as Servico[]);
+      }
+      
+      if (error) {
+        console.error("Erro ao buscar serviços:", error);
+      }
+      setLoading(false);
+    }
+
+    buscarServicos();
+  }, []);
+
+  // Lista ordenada de serviços usando useMemo para performance
+  const servicosOrdenados = useMemo(() => {
+    return [...dadosServicos].sort((a, b) => {
+      if (a.destaque && !b.destaque) return -1;
+      if (!a.destaque && b.destaque) return 1;
+      return (b.ordem || 0) - (a.ordem || 0);
+    });
+  }, [dadosServicos]);
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -257,8 +277,6 @@ function Index() {
     if (requireLogin) requireAuth(() => setSection(s));
     else setSection(s);
   };
-
-  // ... restante do código do return principal (header, content, nav...) segue igualzinho abaixo
 
   return (
   <main className={`flex min-h-[100dvh] items-stretch justify-center sm:items-center sm:p-4 transition-colors duration-200 ${
@@ -418,241 +436,71 @@ function Index() {
 
 {section === "servicos" && (
   <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
-    
-    {/* 1. DECLARAÇÃO DE DADOS E FUNÇÕES INTERNAS */}
-    {(() => {
-      // Interface local para garantir que o TypeScript não reclame de tipos
-      interface AppServico {
-        name: string;
-        address: string;
-        hours: string;
-        price: string;
-        categoria: string;
-        distance: number;
-        destaque?: boolean;
-        ordem?: number;
-        whatsapp?: string;
-      }
-
-      // Dados brutos dos serviços
-      const dadosBrutos: AppServico[] = [
-        { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4, destaque: true, ordem: 2, whatsapp: "5517999999999" },
-        { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1, destaque: false, ordem: 0, whatsapp: "5517999999999" },
-        { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9, destaque: true, ordem: 1, whatsapp: "5517999999999" },
-      ];
-
-      // Ordenação automática (Destaques no topo)
-      const listaOrdenada = [...dadosBrutos].sort((a, b) => {
-        if (a.destaque && !b.destaque) return -1;
-        if (!a.destaque && b.destaque) return 1;
-        return (b.ordem || 0) - (a.ordem || 0);
-      });
-
-      // Função de disparo do WhatsApp isolada no escopo
-      const dispararWhatsApp = (s: AppServico) => {
-        const numero = s.whatsapp || "5517999999999";
-        const texto = `Olá! Vi o serviço de *${s.name}* no App Abastece Votu e gostaria de agendar.`;
-        window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
-      };
-
-      const isDark = theme === "dark";
-
-      return (
-        <>
-          {/* CABEÇALHO */}
-          <div className="flex items-center gap-2 mb-5 pl-1">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${isDark ? "bg-white/10" : "bg-zinc-100"}`}>
-              🛠️
-            </span>
-            <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${isDark ? "text-muted-foreground/80" : "text-zinc-500"}`}>
-              Serviços Automotivos
-            </h3>
-          </div>
-
-          {/* LISTA DE SERVIÇOS */}
-          <div className="space-y-4">
-            {listaOrdenada.map((s) => {
-              // Ajuste dinâmico de cores baseado no Destaque e Tema
-              const cardClass = s.destaque
-                ? isDark
-                  ? "bg-[#1a1a1d] border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:border-amber-400/60"
-                  : "bg-amber-50/40 border-amber-300 shadow-amber-100 hover:border-amber-400"
-                : isDark
-                  ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d] hover:border-white/20"
-                  : "bg-white border-zinc-200 hover:border-zinc-300 shadow-zinc-100";
-
-              const titleClass = s.destaque
-                ? isDark ? "text-amber-400" : "text-amber-700"
-                : isDark ? "text-white group-hover:text-blue-400" : "text-zinc-900 group-hover:text-blue-500";
-
-              const btnClass = s.destaque
-                ? isDark
-                  ? "bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500 hover:text-white"
-                  : "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-500 hover:text-white"
-                : isDark
-                  ? "bg-white/5 text-white border-white/10 hover:bg-blue-500 hover:border-blue-500"
-                  : "bg-zinc-50 text-blue-600 border-zinc-200 hover:bg-blue-500 hover:border-blue-500 hover:text-white";
-
-              return (
-                <article
-                  key={s.name}
-                  className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:shadow-2xl ${cardClass}`}
-                >
-                  {/* Etiqueta de Destaque */}
-                  {s.destaque && (
-                    <div className="absolute top-0 right-0 rounded-bl-xl bg-gradient-to-r from-amber-400 to-amber-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md z-10">
-                      ⭐ Destaque
-                    </div>
-                  )}
-
-                  {/* Topo: Nome, Endereço e Categoria */}
-                  <div className="flex items-start justify-between gap-3 mb-3 mt-1">
-                    <div className="min-w-0">
-                      <h4 className={`truncate text-base font-bold transition-colors ${titleClass}`}>
-                        {s.name}
-                      </h4>
-                      <p className={`truncate text-[11px] ${isDark ? "text-muted-foreground" : "text-zinc-500"}`}>{s.address}</p>
-                      <p className={`mt-1 text-[10px] font-semibold ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>{s.hours}</p>
-                    </div>
-
-                    <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-500 border border-blue-500/20">
-                      {s.categoria}
-                    </span>
-                  </div>
-
-                  {/* Meio: Preço e Distância */}
-                  <div className="flex items-end justify-between py-2">
-                    <div>
-                      <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>
-                        Valor Estimado
-                      </span>
-                      <div className={`text-2xl font-black tracking-tight drop-shadow-sm ${isDark ? "text-white" : "text-zinc-900"}`}>
-                        {s.price}
-                      </div>
-                    </div>
-                    <div className="mb-1 text-right">
-                      <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${isDark ? "bg-white/5 text-muted-foreground border-white/5" : "bg-zinc-50 text-zinc-600 border-zinc-200"}`}>
-                        {s.distance} km
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Rodapé: Botão */}
-                  <div className={`mt-3 border-t pt-4 ${isDark ? "border-white/5" : "border-zinc-100"}`}>
-                    <button
-                      onClick={() => requireAuth(() => {
-                        fireToast(`${s.name} agendado!`);
-                        dispararWhatsApp(s);
-                      }, "Faça login para agendar")}
-                      className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold uppercase tracking-wider border transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98] ${btnClass}`}
-                    >
-                      📅 Agendar no WhatsApp
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </>
-      );
-    })()}
-
-  </section>
-)}
-{section === "servicos" && (
-  <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
-    
-    {/* CABEÇALHO */}
+    {/* Cabeçalho */}
     <div className="flex items-center gap-2 mb-5 pl-1">
       <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>
         🛠️
       </span>
       <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
-        Serviços Automotivos
+        Serviços em Votuporanga
       </h3>
     </div>
 
-    {/* LISTA DE SERVIÇOS */}
-    <div className="space-y-4">
-      {[
-        { name: "Troca de Óleo Premium", address: "Av. Brasil, 1500 — Centro", hours: "08h — 18h", price: "R$ 159", categoria: "Troca de Óleo", distance: 1.4, destaque: true, whatsapp: "5517999999999" },
-        { name: "Alinhamento + Balanceamento", address: "Av. Nasser Marão, 950", hours: "08h — 18h", price: "R$ 119", categoria: "Oficina Mecânica", distance: 0.9, destaque: true, whatsapp: "5517999999999" },
-        { name: "Higienização AR Cond.", address: "R. São Paulo, 220 — Pozzobon", hours: "09h — 19h", price: "R$ 89", categoria: "Lava Rápido", distance: 2.1, destaque: false, whatsapp: "5517999999999" }
-      ].map((s) => {
-        const isDark = theme === "dark";
-        
-        const cardStyle = s.destaque 
-          ? isDark ? "bg-[#1a1a1d] border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] hover:border-amber-400/60" : "bg-amber-50/40 border-amber-300 shadow-amber-100 hover:border-amber-400"
-          : isDark ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d] hover:border-white/20" : "bg-white border-zinc-200 hover:border-zinc-300 shadow-zinc-100";
+    {loading ? (
+      <div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary" /></div>
+    ) : (
+      <div className="space-y-4">
+        {servicosOrdenados.length > 0 ? (
+         servicosOrdenados.map((s, index) => {
+  const isDark = theme === "dark";
+  
+  return (
+    <article
+      key={index}
+      className={`group relative flex flex-col rounded-[22px] border p-5 shadow-xl transition-all duration-300 ${
+        isDark ? "bg-[#161618] border-white/5" : "bg-white border-zinc-200"
+      }`}
+    >
+      {/* CORREÇÃO AQUI: Agora ele lê a variável s.empresa_nome */}
+      <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
+        {s.empresa_nome || "Nome da Empresa"}
+      </h3>
 
-        const titleStyle = s.destaque
-          ? isDark ? "text-amber-400" : "text-amber-700"
-          : isDark ? "text-white group-hover:text-blue-400" : "text-zinc-900 group-hover:text-blue-500";
+      <p className={`text-sm font-bold mb-3 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+        {s.name}
+      </p>
 
-        const btnStyle = s.destaque
-          ? isDark ? "bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500 hover:text-white" : "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-500 hover:text-white"
-          : isDark ? "bg-white/5 text-white border-white/10 hover:bg-blue-500 hover:border-blue-500" : "bg-zinc-50 text-blue-600 border-zinc-200 hover:bg-blue-500 hover:border-blue-500 hover:text-white";
+      <div className="text-[11px] mb-4 opacity-70">
+        <p>{s.address}</p>
+        <p className="font-semibold mt-0.5">{s.hours}</p>
+      </div>
 
-        return (
-          <article 
-            key={s.name} 
-            className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:shadow-2xl ${cardStyle}`}
-          >
-            {s.destaque && (
-              <div className="absolute top-0 right-0 rounded-bl-xl bg-gradient-to-r from-amber-400 to-amber-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md z-10">
-                ⭐ Destaque
-              </div>
-            )}
+      <div className="mb-4">
+        <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
+          Valor Estimado
+        </span>
+        <div className={`text-xl font-black ${isDark ? "text-white" : "text-zinc-900"}`}>
+          {s.price}
+        </div>
+      </div>
 
-            <div className="flex items-start justify-between gap-3 mb-3 mt-1">
-              <div className="min-w-0">
-                <h4 className={`truncate text-base font-bold transition-colors ${titleStyle}`}>
-                  {s.name}
-                </h4>
-                <p className={`truncate text-[11px] ${isDark ? "text-muted-foreground" : "text-zinc-500"}`}>{s.address}</p>
-                <p className={`mt-1 text-[10px] font-semibold ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>{s.hours}</p>
-              </div>
-              <span className="shrink-0 flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-blue-500 border border-blue-500/20">
-                {s.categoria}
-              </span>
-            </div>
-
-            <div className="flex items-end justify-between py-2">
-              <div>
-                <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isDark ? "text-muted-foreground/60" : "text-zinc-400"}`}>
-                  Valor Estimado
-                </span>
-                <div className={`text-2xl font-black tracking-tight drop-shadow-sm ${isDark ? "text-white" : "text-zinc-900"}`}>
-                  {s.price}
-                </div>
-              </div>
-              <div className="mb-1 text-right">
-                <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${isDark ? "bg-white/5 text-muted-foreground border-white/5" : "bg-zinc-50 text-zinc-600 border-zinc-200"}`}>
-                  {s.distance} km
-                </span>
-              </div>
-            </div>
-
-            <div className={`mt-3 border-t pt-4 ${isDark ? "border-white/5" : "border-zinc-100"}`}>
-              <button
-                onClick={() => requireAuth(() => {
-                  fireToast(`${s.name} agendado!`);
-                  const numero = s.whatsapp || "5517999999999";
-                  const texto = `Olá! Vi o serviço de *${s.name}* no App Abastece Votu e gostaria de agendar.`;
-                  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
-                }, "Faça login para agendar")}
-                className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[12px] font-bold uppercase tracking-wider border transition-all hover:shadow-[0_0_15px_rgba(59,130,246,0.4)] active:scale-[0.98] ${btnStyle}`}
-              >
-                📅 Agendar no WhatsApp
-              </button>
-            </div>
-          </article>
-        );
-      })}
-    </div>
-
+      <Button 
+        onClick={() => agendarViaWhatsApp(s)}
+        className="w-full h-10 text-[12px] font-bold bg-primary hover:bg-primary/90 uppercase tracking-wider"
+      >
+        📅 Agendar no WhatsApp
+      </Button>
+    </article>
+  );
+})
+        ) : (
+          <p className="text-center text-sm text-zinc-500 pt-10">Nenhum serviço disponível no momento.</p>
+        )}
+      </div>
+    )}
   </section>
 )}
+
 
           {section === "plus" && (
             <PlusSection

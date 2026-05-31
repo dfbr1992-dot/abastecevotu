@@ -23,6 +23,8 @@ const LABELS: Record<Categoria, string> = {
 
 const schema = z.object({
   nome: z.string().trim().min(1).max(120),
+  nome_servico: z.string().trim().min(1).max(120),
+  preco: z.coerce.number().min(0, "O preço deve ser positivo"),
   categoria: z.enum(["lava_rapido", "oficina_mecanica", "troca_oleo"]),
   endereco: z.string().max(255).optional().nullable(),
   telefone: z.string().max(30).optional().nullable(),
@@ -105,9 +107,10 @@ function CategoriaList({ categoria }: { categoria: Categoria }) {
             <table className="w-full text-sm">
               <thead className="bg-secondary/80 text-left text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Nome</th>
+                  <th className="px-4 py-3">Empresa</th>
+                  <th className="px-4 py-3">Serviço</th>
+                  <th className="px-4 py-3">Preço</th>
                   <th className="px-4 py-3 hidden md:table-cell">Endereço</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Telefone</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Ações</th>
                 </tr>
@@ -116,8 +119,11 @@ function CategoriaList({ categoria }: { categoria: Categoria }) {
                 {data.map((s) => (
                   <tr key={s.id} className="border-t">
                     <td className="px-4 py-3 font-medium text-white">{s.nome}</td>
+                    <td className="px-4 py-3 text-white/80">{s.nome_servico}</td>
+                    <td className="px-4 py-3 text-emerald-400 font-medium">
+                      {s.preco ? `R$ ${Number(s.preco).toFixed(2).replace('.', ',')}` : "—"}
+                    </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{s.endereco ?? "—"}</td>
-                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{s.telefone ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full ${s.ativo ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-muted-foreground"}`}>{s.ativo ? "Ativo" : "Inativo"}</span>
                     </td>
@@ -138,28 +144,67 @@ function CategoriaList({ categoria }: { categoria: Categoria }) {
 function ServicoDialog({ initial, categoria, onSave }: { initial: Servico | null; categoria: Categoria; onSave: (d: FormData) => void }) {
   const [form, setForm] = useState<FormData>({
     nome: initial?.nome ?? "",
+    nome_servico: initial?.nome_servico ?? "",
+    preco: initial?.preco ?? 0,
     categoria,
     endereco: initial?.endereco ?? "",
     telefone: initial?.telefone ?? "",
     horario: initial?.horario ?? "",
     ativo: initial?.ativo ?? true,
   });
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = schema.safeParse(form);
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     onSave(parsed.data);
   }
+
   return (
-    <DialogContent>
+    <DialogContent className="max-w-md">
       <DialogHeader><DialogTitle>{initial ? "Editar" : "Novo"} {LABELS[categoria]}</DialogTitle></DialogHeader>
       <form onSubmit={submit} className="space-y-4">
-        <div className="space-y-2"><Label>Nome</Label><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></div>
-        <div className="space-y-2"><Label>Endereço</Label><Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
-        <div className="space-y-2"><Label>Telefone</Label><Input value={form.telefone ?? ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></div>
-        <div className="space-y-2"><Label>Horário</Label><Input value={form.horario ?? ""} onChange={(e) => setForm({ ...form, horario: e.target.value })} placeholder="Seg-Sex 08:00-18:00" /></div>
-        <div className="flex items-center justify-between"><Label>Ativo</Label><Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} /></div>
-        <DialogFooter><Button type="submit">Salvar</Button></DialogFooter>
+        
+        <div className="space-y-2">
+          <Label>Nome da Empresa</Label>
+          <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Rei do Óleo" required />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Serviço Oferecido</Label>
+            <Input value={form.nome_servico} onChange={(e) => setForm({ ...form, nome_servico: e.target.value })} placeholder="Ex: Troca de Óleo" required />
+          </div>
+          <div className="space-y-2">
+            <Label>Preço (R$)</Label>
+            <Input type="number" step="0.01" value={form.preco || ""} onChange={(e) => setForm({ ...form, preco: e.target.value as any })} placeholder="0.00" required />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Endereço</Label>
+          <Input value={form.endereco ?? ""} onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Telefone</Label>
+            <Input value={form.telefone ?? ""} onChange={(e) => setForm({ ...form, telefone: e.target.value })} placeholder="17999999999" />
+          </div>
+          <div className="space-y-2">
+            <Label>Horário</Label>
+            <Input value={form.horario ?? ""} onChange={(e) => setForm({ ...form, horario: e.target.value })} placeholder="Seg-Sex 08:00-18:00" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <Label>Ativo</Label>
+          <Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
+        </div>
+
+        <DialogFooter className="pt-2">
+          <Button type="submit">Salvar</Button>
+        </DialogFooter>
       </form>
     </DialogContent>
   );

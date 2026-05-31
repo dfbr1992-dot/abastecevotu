@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, MapPin, DollarSign, Wrench, Image as ImageIcon, LogOut, Fuel, Loader2 } from "lucide-react";
+import { LayoutDashboard, MapPin, DollarSign, Wrench, Image as ImageIcon, LogOut, Fuel, Loader2, Gift } from "lucide-react";
 import { useEffect } from "react";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
@@ -10,11 +10,13 @@ export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin — Abastece Votu" }, { name: "robots", content: "noindex" }] }),
 });
 
+// Ícone Gift adicionado e rota /admin/premios inserida
 const nav: { to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean }[] = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/admin/postos", label: "Postos", icon: MapPin },
   { to: "/admin/precos", label: "Preços", icon: DollarSign },
   { to: "/admin/servicos", label: "Serviços", icon: Wrench },
+  { to: "/admin/premios", label: "Prêmios", icon: Gift }, 
   { to: "/admin/banners", label: "Banners", icon: ImageIcon },
 ];
 

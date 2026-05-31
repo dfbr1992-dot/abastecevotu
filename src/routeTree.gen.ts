@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminServicosRouteImport } from './routes/admin.servicos'
+import { Route as AdminPremiosRouteImport } from './routes/admin.premios'
 import { Route as AdminPrecosRouteImport } from './routes/admin.precos'
 import { Route as AdminPostosRouteImport } from './routes/admin.postos'
 import { Route as AdminBannersRouteImport } from './routes/admin.banners'
@@ -49,6 +50,11 @@ const AdminServicosRoute = AdminServicosRouteImport.update({
   path: '/servicos',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPremiosRoute = AdminPremiosRouteImport.update({
+  id: '/premios',
+  path: '/premios',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPrecosRoute = AdminPrecosRouteImport.update({
   id: '/precos',
   path: '/precos',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/admin/banners': typeof AdminBannersRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
+  '/admin/premios': typeof AdminPremiosRoute
   '/admin/servicos': typeof AdminServicosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/admin/banners': typeof AdminBannersRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
+  '/admin/premios': typeof AdminPremiosRoute
   '/admin/servicos': typeof AdminServicosRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/admin/banners': typeof AdminBannersRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
+  '/admin/premios': typeof AdminPremiosRoute
   '/admin/servicos': typeof AdminServicosRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/admin/banners'
     | '/admin/postos'
     | '/admin/precos'
+    | '/admin/premios'
     | '/admin/servicos'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/admin/banners'
     | '/admin/postos'
     | '/admin/precos'
+    | '/admin/premios'
     | '/admin/servicos'
     | '/admin'
   id:
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/admin/banners'
     | '/admin/postos'
     | '/admin/precos'
+    | '/admin/premios'
     | '/admin/servicos'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -184,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminServicosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/premios': {
+      id: '/admin/premios'
+      path: '/premios'
+      fullPath: '/admin/premios'
+      preLoaderRoute: typeof AdminPremiosRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/precos': {
       id: '/admin/precos'
       path: '/precos'
@@ -212,6 +231,7 @@ interface AdminRouteChildren {
   AdminBannersRoute: typeof AdminBannersRoute
   AdminPostosRoute: typeof AdminPostosRoute
   AdminPrecosRoute: typeof AdminPrecosRoute
+  AdminPremiosRoute: typeof AdminPremiosRoute
   AdminServicosRoute: typeof AdminServicosRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -220,6 +240,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBannersRoute: AdminBannersRoute,
   AdminPostosRoute: AdminPostosRoute,
   AdminPrecosRoute: AdminPrecosRoute,
+  AdminPremiosRoute: AdminPremiosRoute,
   AdminServicosRoute: AdminServicosRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
