@@ -151,8 +151,8 @@ function Index() {
   useEffect(() => {
     async function buscarServicos() {
       const { data, error } = await supabase
-        .from('servicos')
-        .select('nome_servico, empresa_nome, endereco, horario, preco, categoria, ativo')
+  .from("servicos")
+  .select("nome, nome_servico, endereco, horario, preco, categoria")
         .eq('ativo', true);
 
       if (data) {
