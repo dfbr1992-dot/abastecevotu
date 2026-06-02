@@ -453,6 +453,7 @@ function Index() {
         {servicosOrdenados.length > 0 ? (
          servicosOrdenados.map((s, index) => {
   const isDark = theme === "dark";
+
   
   return (
     <article
@@ -461,9 +462,8 @@ function Index() {
         isDark ? "bg-[#161618] border-white/5" : "bg-white border-zinc-200"
       }`}
     >
-      {/* CORREÇÃO AQUI: Agora ele lê a variável s.empresa_nome */}
-     <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
-  {s.nome || "Nome da Empresa"}
+         <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
+  {s.company || s.companyName || s.company_name || "Nome da Empresa"}
 </h3>
 
       <p className={`text-sm font-bold mb-3 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
