@@ -157,14 +157,13 @@ function Index() {
 
       if (data) {
         // Mapeamos os dados que vieram do banco para o formato que seu componente espera
-        const formatados = data.map(s => ({
-        name: s.nome_servico,
-        empresa_nome: s.empresa_nome, // <-- Certifique-se de adicionar isso
-        address: s.endereco,
-        hours: s.horario,
-        price: s.preco,
-        categoria: s.categoria
-        }));
+        const servicosFormatados = data.map((item) => ({
+  name: item.nome_servico,
+  empresa_nome: item.nome, //  Agora ele vai ler a coluna 'nome' e salvar em 'empresa_nome'
+  address: item.endereco,
+  hours: item.horario,
+  price: item.preco,
+}));
         setDadosServicos(formatados as Servico[]);
       }
       
