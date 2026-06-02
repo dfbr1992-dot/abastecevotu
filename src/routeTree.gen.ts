@@ -9,8 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as MeusDadosRouteImport } from './routes/meus-dados'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AtualizarSenhaRouteImport } from './routes/atualizar-senha'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -18,8 +20,16 @@ import { Route as AdminServicosRouteImport } from './routes/admin.servicos'
 import { Route as AdminPremiosRouteImport } from './routes/admin.premios'
 import { Route as AdminPrecosRouteImport } from './routes/admin.precos'
 import { Route as AdminPostosRouteImport } from './routes/admin.postos'
+import { Route as AdminNotificacoesRouteImport } from './routes/admin.notificacoes'
+import { Route as AdminInsightsRouteImport } from './routes/admin.insights'
+import { Route as AdminClientesRouteImport } from './routes/admin.clientes'
 import { Route as AdminBannersRouteImport } from './routes/admin.banners'
 
+const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
+  id: '/recuperar-senha',
+  path: '/recuperar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MeusDadosRoute = MeusDadosRouteImport.update({
   id: '/meus-dados',
   path: '/meus-dados',
@@ -28,6 +38,11 @@ const MeusDadosRoute = MeusDadosRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AtualizarSenhaRoute = AtualizarSenhaRouteImport.update({
+  id: '/atualizar-senha',
+  path: '/atualizar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -65,6 +80,21 @@ const AdminPostosRoute = AdminPostosRouteImport.update({
   path: '/postos',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminNotificacoesRoute = AdminNotificacoesRouteImport.update({
+  id: '/notificacoes',
+  path: '/notificacoes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInsightsRoute = AdminInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminClientesRoute = AdminClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBannersRoute = AdminBannersRouteImport.update({
   id: '/banners',
   path: '/banners',
@@ -74,9 +104,14 @@ const AdminBannersRoute = AdminBannersRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/atualizar-senha': typeof AtualizarSenhaRoute
   '/login': typeof LoginRoute
   '/meus-dados': typeof MeusDadosRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin/banners': typeof AdminBannersRoute
+  '/admin/clientes': typeof AdminClientesRoute
+  '/admin/insights': typeof AdminInsightsRoute
+  '/admin/notificacoes': typeof AdminNotificacoesRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
   '/admin/premios': typeof AdminPremiosRoute
@@ -85,9 +120,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/atualizar-senha': typeof AtualizarSenhaRoute
   '/login': typeof LoginRoute
   '/meus-dados': typeof MeusDadosRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin/banners': typeof AdminBannersRoute
+  '/admin/clientes': typeof AdminClientesRoute
+  '/admin/insights': typeof AdminInsightsRoute
+  '/admin/notificacoes': typeof AdminNotificacoesRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
   '/admin/premios': typeof AdminPremiosRoute
@@ -98,9 +138,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/atualizar-senha': typeof AtualizarSenhaRoute
   '/login': typeof LoginRoute
   '/meus-dados': typeof MeusDadosRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin/banners': typeof AdminBannersRoute
+  '/admin/clientes': typeof AdminClientesRoute
+  '/admin/insights': typeof AdminInsightsRoute
+  '/admin/notificacoes': typeof AdminNotificacoesRoute
   '/admin/postos': typeof AdminPostosRoute
   '/admin/precos': typeof AdminPrecosRoute
   '/admin/premios': typeof AdminPremiosRoute
@@ -112,9 +157,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/atualizar-senha'
     | '/login'
     | '/meus-dados'
+    | '/recuperar-senha'
     | '/admin/banners'
+    | '/admin/clientes'
+    | '/admin/insights'
+    | '/admin/notificacoes'
     | '/admin/postos'
     | '/admin/precos'
     | '/admin/premios'
@@ -123,9 +173,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/atualizar-senha'
     | '/login'
     | '/meus-dados'
+    | '/recuperar-senha'
     | '/admin/banners'
+    | '/admin/clientes'
+    | '/admin/insights'
+    | '/admin/notificacoes'
     | '/admin/postos'
     | '/admin/precos'
     | '/admin/premios'
@@ -135,9 +190,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/atualizar-senha'
     | '/login'
     | '/meus-dados'
+    | '/recuperar-senha'
     | '/admin/banners'
+    | '/admin/clientes'
+    | '/admin/insights'
+    | '/admin/notificacoes'
     | '/admin/postos'
     | '/admin/precos'
     | '/admin/premios'
@@ -148,12 +208,21 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  AtualizarSenhaRoute: typeof AtualizarSenhaRoute
   LoginRoute: typeof LoginRoute
   MeusDadosRoute: typeof MeusDadosRoute
+  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/recuperar-senha': {
+      id: '/recuperar-senha'
+      path: '/recuperar-senha'
+      fullPath: '/recuperar-senha'
+      preLoaderRoute: typeof RecuperarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/meus-dados': {
       id: '/meus-dados'
       path: '/meus-dados'
@@ -166,6 +235,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/atualizar-senha': {
+      id: '/atualizar-senha'
+      path: '/atualizar-senha'
+      fullPath: '/atualizar-senha'
+      preLoaderRoute: typeof AtualizarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -217,6 +293,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPostosRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/notificacoes': {
+      id: '/admin/notificacoes'
+      path: '/notificacoes'
+      fullPath: '/admin/notificacoes'
+      preLoaderRoute: typeof AdminNotificacoesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/insights': {
+      id: '/admin/insights'
+      path: '/insights'
+      fullPath: '/admin/insights'
+      preLoaderRoute: typeof AdminInsightsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/clientes': {
+      id: '/admin/clientes'
+      path: '/clientes'
+      fullPath: '/admin/clientes'
+      preLoaderRoute: typeof AdminClientesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/banners': {
       id: '/admin/banners'
       path: '/banners'
@@ -229,6 +326,9 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminBannersRoute: typeof AdminBannersRoute
+  AdminClientesRoute: typeof AdminClientesRoute
+  AdminInsightsRoute: typeof AdminInsightsRoute
+  AdminNotificacoesRoute: typeof AdminNotificacoesRoute
   AdminPostosRoute: typeof AdminPostosRoute
   AdminPrecosRoute: typeof AdminPrecosRoute
   AdminPremiosRoute: typeof AdminPremiosRoute
@@ -238,6 +338,9 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminBannersRoute: AdminBannersRoute,
+  AdminClientesRoute: AdminClientesRoute,
+  AdminInsightsRoute: AdminInsightsRoute,
+  AdminNotificacoesRoute: AdminNotificacoesRoute,
   AdminPostosRoute: AdminPostosRoute,
   AdminPrecosRoute: AdminPrecosRoute,
   AdminPremiosRoute: AdminPremiosRoute,
@@ -250,8 +353,10 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  AtualizarSenhaRoute: AtualizarSenhaRoute,
   LoginRoute: LoginRoute,
   MeusDadosRoute: MeusDadosRoute,
+  RecuperarSenhaRoute: RecuperarSenhaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

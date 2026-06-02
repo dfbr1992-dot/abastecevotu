@@ -462,9 +462,9 @@ function Index() {
       }`}
     >
       {/* CORREÇÃO AQUI: Agora ele lê a variável s.empresa_nome */}
-      <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
-        {s.empresa_nome || "Nome da Empresa"}
-      </h3>
+     <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
+  {s.nome || "Nome da Empresa"}
+</h3>
 
       <p className={`text-sm font-bold mb-3 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
         {s.name}
@@ -614,7 +614,25 @@ function PostosSection({
   const [convPosto, setConvPosto] = useState<any | null>(null);
 
   // Auxiliar para formatar moeda mantendo o padrão visual
-  const fmt = (val: number) => val.toFixed(2).replace('.', ',');
+  const fmt = (val: number) => {
+    if (val === undefined || val === null || isNaN(val)) return "—";
+    return val.toFixed(2).replace('.', ',');
+  };
+
+  /**
+   * MAPEAMENTO CIRÚRGICO:
+   * Converte a chave simplificada do app para o formato real gravado no Supabase
+   */
+  const getPrecoBanco = (posto: any, combustivelAtual: string) => {
+    if (!posto || !posto.prices) return 0;
+    
+    if (combustivelAtual === "gasolina") {
+      // Se o app pedir "gasolina", buscamos "gasolina_comum" ou "gasolina_aditivada" vindas do Supabase
+      return posto.prices["gasolina_comum"] ?? posto.prices["gasolina"] ?? 0;
+    }
+    
+    return posto.prices[combustivelAtual] ?? 0;
+  };
 
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
@@ -654,7 +672,6 @@ function PostosSection({
 
         {/* Filtro de Ordenação */}
         <div className="flex gap-2">
-          {/* Botão Menor Preço */}
           <button
             onClick={() => setSortBy("price")}
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
@@ -667,10 +684,9 @@ function PostosSection({
                   : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
             }`}
           >
-            📉 Menor Preço
+            Análise de Preço
           </button>
 
-          {/* Botão Mais Próximo */}
           <button
             onClick={() => setSortBy("distance")}
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
@@ -683,15 +699,16 @@ function PostosSection({
                   : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
             }`}
           >
-            📍 Mais Próximo
+            Proximidade
           </button>
         </div>
       </div>
 
-     {/* LISTA DE CARDS ALTA FIDELIDADE */}
+      {/* LISTA DE CARDS ALTA FIDELIDADE */}
       <div className="space-y-4">
         {sortedPostos.map((p) => {
           const isConfirmed = confirmed.includes(p.name);
+          const precoExibicao = getPrecoBanco(p, fuel);
           
           return (
             <article 
@@ -702,7 +719,7 @@ function PostosSection({
                   : "border-zinc-200 bg-white shadow-md hover:shadow-lg hover:border-zinc-300"
               }`}
             >
-              {/* Topo: Informações do Posto + Botão Conveniência */}
+              {/* Topo: Informações do Posto */}
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="min-w-0">
                   <h4 className={`truncate text-base font-bold transition-colors ${
@@ -721,7 +738,7 @@ function PostosSection({
                     onClick={() => setConvPosto(p)}
                     className="shrink-0 flex items-center gap-1.5 rounded-full bg-brand-purple/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-purple border border-brand-purple/20 transition-all hover:bg-brand-purple/20"
                   >
-                    🛒 Loja
+                    Loja
                   </button>
                 )}
               </div>
@@ -741,7 +758,7 @@ function PostosSection({
                     <span className={`text-4xl font-black tracking-tighter drop-shadow-sm transition-colors ${
                       theme === "dark" ? "text-emerald-400" : "text-emerald-600"
                     }`}>
-                      {fmt(p.prices[fuel])}
+                      {fmt(precoExibicao)}
                     </span>
                   </div>
                 </div>
@@ -756,7 +773,7 @@ function PostosSection({
                 </div>
               </div>
 
-              {/* Rodapé: Validação e Sistema de Avaliação (Like/Dislike) */}
+              {/* Rodapé: Validação */}
               <div className={`mt-3 flex items-center justify-between border-t pt-3 transition-colors ${
                 theme === "dark" ? "border-white/5" : "border-zinc-100"
               }`}>
@@ -772,7 +789,6 @@ function PostosSection({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {/* Botão de Like */}
                   <button
                     disabled={isConfirmed}
                     onClick={() => onConfirm(p.name)}
@@ -787,22 +803,19 @@ function PostosSection({
                     }`}
                     title="Preço correto (Like)"
                   >
-                    <span className="text-lg">👍</span>
+                    👍
                   </button>
 
-                  {/* Botão de Dislike */}
                   <button
                     className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
                       theme === "dark"
                         ? "border-white/10 bg-white/5 text-muted-foreground hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
                         : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 shadow-sm"
                     }`}
-                    title="Preço incorreto (Dislike)"
-                    onClick={() => {
-                      // Espaço para futura função de dislike
-                    }}
+                    title="Preço incorrecto (Dislike)"
+                    onClick={() => {}}
                   >
-                    <span className="text-lg">👎</span>
+                    👎
                   </button>
                 </div>
               </div>
@@ -810,37 +823,6 @@ function PostosSection({
           );
         })}
       </div>
-
-      {/* DIALOG DE CONVENIÊNCIA ESTILIZADO */}
-      <Dialog open={!!convPosto} onOpenChange={(o) => !o && setConvPosto(null)}>
-        <DialogContent className="max-w-sm border-white/10 bg-[#121214] text-white shadow-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              🛒 Loja de Conveniência
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {convPosto?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <ul className="my-2 divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5 px-4 py-2">
-  {/* Aqui estamos exibindo os preços buscados do banco */}
-  {Object.entries(convPosto?.prices || {}).map(([combustivel, preco]) => (
-    <li key={combustivel} className="flex items-center justify-between py-3">
-      <span className="text-sm font-semibold text-white/90 capitalize">{combustivel}</span>
-      <span className="text-sm font-black text-emerald-400">R$ {preco.toFixed(2).replace('.', ',')}</span>
-    </li>
-  ))}
-</ul>
-          <DialogFooter>
-            <button 
-              className="w-full rounded-xl bg-white/10 py-2.5 text-sm font-bold text-white transition hover:bg-white/20"
-              onClick={() => setConvPosto(null)}
-            >
-              Fechar Catálogo
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }
