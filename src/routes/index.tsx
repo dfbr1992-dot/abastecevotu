@@ -464,7 +464,7 @@ function Index() {
       }`}
     >
          <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
-  {<s className="nome">{s.nome} </s>|| "Serviço sem nome"}
+  {s.company || s.companyName || s.company_name || "ooooo"}
 </h3>
 
       <p className={`text-sm font-bold mb-3 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
