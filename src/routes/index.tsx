@@ -451,8 +451,9 @@ function Index() {
     ) : (
       <div className="space-y-4">
         {servicosOrdenados.length > 0 ? (
-         servicosOrdenados.map((s, index) => {
-  const isDark = theme === "dark";
+  servicosOrdenados.map((s, index) => {
+    const isDark = theme === "dark";
+    console.log("Propriedades do serviço:", s);
 
   
   return (
