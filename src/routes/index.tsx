@@ -137,7 +137,7 @@ function Index() {
           hours: `${p.horario_abertura} — ${p.horario_fechamento}`,
           prices: {
             etanol: p.precos?.find((pr: any) => pr.combustivel === 'etanol')?.valor || 0,
-            gasolina: p.precos?.find((pr: any) => pr.combustivel === 'gasolina')?.valor || 0,
+            gasolina: p.precos?.find((pr: any) => pr.combustivel === 'gasolina_comum')?.valor || 0,
             diesel: p.precos?.find((pr: any) => pr.combustivel === 'diesel')?.valor || 0
           }
         }));
