@@ -157,12 +157,13 @@ function Index() {
 
       if (data) {
         // Mapeamos os dados que vieram do banco para o formato que seu componente espera
-        const servicosFormatados = data.map((item) => ({
-  name: item.nome_servico,
-  empresa_nome: item.nome, //  Agora ele vai ler a coluna 'nome' e salvar em 'empresa_nome'
-  address: item.endereco,
-  hours: item.horario,
-  price: item.preco,
+        const formatados = data.map(s => ({
+  name: s.nome_servico,
+  empresa_nome: s.nome, // 🌟 Alterado aqui: puxa a coluna correta do banco!
+  address: s.endereco,
+  hours: s.horario,
+  price: s.preco,
+  categoria: s.categoria
 }));
         setDadosServicos(formatados as Servico[]);
       }
@@ -463,7 +464,7 @@ function Index() {
       }`}
     >
          <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
-  {s.company || s.companyName || s.company_name || "ooooo"}
+  {s.empresa_nome || "Nome da Empresa"}
 </h3>
 
       <p className={`text-sm font-bold mb-3 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
