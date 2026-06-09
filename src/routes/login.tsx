@@ -29,15 +29,29 @@ function LoginPage() {
   // Estados dos Campos
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false); // Novo estado para LGPD
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: redirect });
     });
   }, [navigate, redirect]);
+
+  // Máscara para CPF (000.000.000-00)
+  function handleCpfChange(value: string) {
+    const raw = value.replace(/\D/g, "");
+    if (raw.length <= 11) {
+      let masked = raw;
+      if (raw.length > 3) masked = `${raw.slice(0, 3)}.${raw.slice(3)}`;
+      if (raw.length > 6) masked = `${raw.slice(0, 3)}.${raw.slice(3, 6)}.${raw.slice(6)}`;
+      if (raw.length > 9) masked = `${raw.slice(0, 3)}.${raw.slice(3, 6)}.${raw.slice(6, 9)}-${raw.slice(9, 11)}`;
+      setCpf(masked);
+    }
+  }
 
   // Máscara simples para WhatsApp (XX) XXXXX-XXXX
   function handleWhatsappChange(value: string) {
@@ -61,7 +75,6 @@ function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         
         if (error) {
-          // Captura especificamente o erro de e-mail não confirmado
           if (error.message.includes("Email not confirmed")) {
             throw new Error("Atenção: Você precisa confirmar seu e-mail antes de entrar. Verifique sua caixa de entrada ou spam!");
           }
@@ -73,8 +86,14 @@ function LoginPage() {
       } else {
         // Validações básicas de cadastro
         if (!name.trim()) throw new Error("Por favor, digite seu nome.");
+        if (cpf.replace(/\D/g, "").length !== 11) throw new Error("Por favor, digite um CPF válido.");
         if (password !== confirmPassword) throw new Error("As senhas não coincidem.");
         if (whatsapp.replace(/\D/g, "").length < 10) throw new Error("Número de WhatsApp inválido.");
+        
+        // Bloqueio de segurança LGPD
+        if (!acceptedTerms) {
+          throw new Error("Você precisa aceitar os Termos de Uso e Política de Privacidade para continuar.");
+        }
 
         const { error } = await supabase.auth.signUp({
           email,
@@ -83,6 +102,7 @@ function LoginPage() {
             emailRedirectTo: window.location.origin,
             data: {
               display_name: name.trim(),
+              cpf: cpf.replace(/\D/g, ""),
               whatsapp: whatsapp.replace(/\D/g, ""),
             },
           },
@@ -90,13 +110,14 @@ function LoginPage() {
         
         if (error) throw error;
         
-        // Exibe o banner de sucesso em vez de redirecionar imediatamente
         setSuccessMsg("Conta criada com sucesso! Enviamos um link de confirmação para o seu e-mail. Verifique a caixa de entrada e o spam.");
         toast.success("Conta criada!");
         
-        // Limpa as senhas e muda para o modo login para quando o usuário voltar do e-mail
+        // Limpa estados confidenciais e reseta o checkbox
+        setCpf("");
         setPassword("");
         setConfirmPassword("");
+        setAcceptedTerms(false);
         setMode("login");
       }
     } catch (err: unknown) {
@@ -108,7 +129,6 @@ function LoginPage() {
     }
   }
 
-  // Função auxiliar para mudar de modo e limpar alertas
   function switchMode(newMode: "login" | "signup") {
     setMode(newMode);
     setErrorMsg("");
@@ -173,10 +193,17 @@ function LoginPage() {
             </div>
 
             {mode === "signup" && (
-              <div className="space-y-1.5 animate-slide-in-from-top-1">
-                <Label htmlFor="whatsapp" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">WhatsApp</Label>
-                <Input id="whatsapp" type="tel" required value={whatsapp} onChange={(e) => handleWhatsappChange(e.target.value)} placeholder="(17) 99999-9999" className="h-10 border-white/10 bg-secondary/30 focus-visible:ring-primary" />
-              </div>
+              <>
+                <div className="space-y-1.5 animate-slide-in-from-top-1">
+                  <Label htmlFor="cpf" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">CPF</Label>
+                  <Input id="cpf" type="text" required value={cpf} onChange={(e) => handleCpfChange(e.target.value)} placeholder="000.000.000-00" className="h-10 border-white/10 bg-secondary/30 focus-visible:ring-primary" />
+                </div>
+
+                <div className="space-y-1.5 animate-slide-in-from-top-1">
+                  <Label htmlFor="whatsapp" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">WhatsApp</Label>
+                  <Input id="whatsapp" type="tel" required value={whatsapp} onChange={(e) => handleWhatsappChange(e.target.value)} placeholder="(17) 99999-9999" className="h-10 border-white/10 bg-secondary/30 focus-visible:ring-primary" />
+                </div>
+              </>
             )}
 
             <div className="space-y-1.5 relative">
@@ -200,6 +227,31 @@ function LoginPage() {
               <div className="space-y-1.5 animate-slide-in-from-top-1">
                 <Label htmlFor="confirmPassword" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">Confirmar Senha</Label>
                 <Input id="confirmPassword" type="password" required minLength={6} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repita sua senha" className="h-10 border-white/10 bg-secondary/30 focus-visible:ring-primary" />
+              </div>
+            )}
+
+            {/* SEÇÃO LGPD: Checkbox de consentimento (Apenas visível ao Criar Conta) */}
+            {mode === "signup" && (
+              <div className="flex items-start gap-2.5 pt-1 pb-1 animate-slide-in-from-top-1">
+                <input
+                  id="terms"
+                  type="checkbox"
+                  required
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 cursor-pointer accent-primary rounded border-white/10 bg-secondary/30"
+                />
+                <label htmlFor="terms" className="text-[11px] text-muted-foreground leading-snug cursor-pointer select-none">
+                  Li e estou de acordo com os{" "}
+                  <Link to="/termos" className="text-white underline hover:text-primary transition-colors">
+                    Termos de Uso
+                  </Link>{" "}
+                  e a{" "}
+                  <Link to="/privacidade" className="text-white underline hover:text-primary transition-colors">
+                    Política de Privacidade
+                  </Link>{" "}
+                  do Abastece Votu.
+                </label>
               </div>
             )}
 

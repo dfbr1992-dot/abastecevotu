@@ -13,17 +13,7 @@ import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as MeusDadosRouteImport } from './routes/meus-dados'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AtualizarSenhaRouteImport } from './routes/atualizar-senha'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as AdminServicosRouteImport } from './routes/admin.servicos'
-import { Route as AdminPremiosRouteImport } from './routes/admin.premios'
-import { Route as AdminPrecosRouteImport } from './routes/admin.precos'
-import { Route as AdminPostosRouteImport } from './routes/admin.postos'
-import { Route as AdminNotificacoesRouteImport } from './routes/admin.notificacoes'
-import { Route as AdminInsightsRouteImport } from './routes/admin.insights'
-import { Route as AdminClientesRouteImport } from './routes/admin.clientes'
-import { Route as AdminBannersRouteImport } from './routes/admin.banners'
 
 const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
@@ -45,78 +35,18 @@ const AtualizarSenhaRoute = AtualizarSenhaRouteImport.update({
   path: '/atualizar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminIndexRoute = AdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminServicosRoute = AdminServicosRouteImport.update({
-  id: '/servicos',
-  path: '/servicos',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPremiosRoute = AdminPremiosRouteImport.update({
-  id: '/premios',
-  path: '/premios',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPrecosRoute = AdminPrecosRouteImport.update({
-  id: '/precos',
-  path: '/precos',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminPostosRoute = AdminPostosRouteImport.update({
-  id: '/postos',
-  path: '/postos',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminNotificacoesRoute = AdminNotificacoesRouteImport.update({
-  id: '/notificacoes',
-  path: '/notificacoes',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminInsightsRoute = AdminInsightsRouteImport.update({
-  id: '/insights',
-  path: '/insights',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminClientesRoute = AdminClientesRouteImport.update({
-  id: '/clientes',
-  path: '/clientes',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminBannersRoute = AdminBannersRouteImport.update({
-  id: '/banners',
-  path: '/banners',
-  getParentRoute: () => AdminRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/atualizar-senha': typeof AtualizarSenhaRoute
   '/login': typeof LoginRoute
   '/meus-dados': typeof MeusDadosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/admin/banners': typeof AdminBannersRoute
-  '/admin/clientes': typeof AdminClientesRoute
-  '/admin/insights': typeof AdminInsightsRoute
-  '/admin/notificacoes': typeof AdminNotificacoesRoute
-  '/admin/postos': typeof AdminPostosRoute
-  '/admin/precos': typeof AdminPrecosRoute
-  '/admin/premios': typeof AdminPremiosRoute
-  '/admin/servicos': typeof AdminServicosRoute
-  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -124,90 +54,36 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/meus-dados': typeof MeusDadosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/admin/banners': typeof AdminBannersRoute
-  '/admin/clientes': typeof AdminClientesRoute
-  '/admin/insights': typeof AdminInsightsRoute
-  '/admin/notificacoes': typeof AdminNotificacoesRoute
-  '/admin/postos': typeof AdminPostosRoute
-  '/admin/precos': typeof AdminPrecosRoute
-  '/admin/premios': typeof AdminPremiosRoute
-  '/admin/servicos': typeof AdminServicosRoute
-  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
   '/atualizar-senha': typeof AtualizarSenhaRoute
   '/login': typeof LoginRoute
   '/meus-dados': typeof MeusDadosRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/admin/banners': typeof AdminBannersRoute
-  '/admin/clientes': typeof AdminClientesRoute
-  '/admin/insights': typeof AdminInsightsRoute
-  '/admin/notificacoes': typeof AdminNotificacoesRoute
-  '/admin/postos': typeof AdminPostosRoute
-  '/admin/precos': typeof AdminPrecosRoute
-  '/admin/premios': typeof AdminPremiosRoute
-  '/admin/servicos': typeof AdminServicosRoute
-  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
     | '/atualizar-senha'
     | '/login'
     | '/meus-dados'
     | '/recuperar-senha'
-    | '/admin/banners'
-    | '/admin/clientes'
-    | '/admin/insights'
-    | '/admin/notificacoes'
-    | '/admin/postos'
-    | '/admin/precos'
-    | '/admin/premios'
-    | '/admin/servicos'
-    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/atualizar-senha'
-    | '/login'
-    | '/meus-dados'
-    | '/recuperar-senha'
-    | '/admin/banners'
-    | '/admin/clientes'
-    | '/admin/insights'
-    | '/admin/notificacoes'
-    | '/admin/postos'
-    | '/admin/precos'
-    | '/admin/premios'
-    | '/admin/servicos'
-    | '/admin'
+  to: '/' | '/atualizar-senha' | '/login' | '/meus-dados' | '/recuperar-senha'
   id:
     | '__root__'
     | '/'
-    | '/admin'
     | '/atualizar-senha'
     | '/login'
     | '/meus-dados'
     | '/recuperar-senha'
-    | '/admin/banners'
-    | '/admin/clientes'
-    | '/admin/insights'
-    | '/admin/notificacoes'
-    | '/admin/postos'
-    | '/admin/precos'
-    | '/admin/premios'
-    | '/admin/servicos'
-    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
   AtualizarSenhaRoute: typeof AtualizarSenhaRoute
   LoginRoute: typeof LoginRoute
   MeusDadosRoute: typeof MeusDadosRoute
@@ -244,13 +120,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AtualizarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -258,101 +127,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/': {
-      id: '/admin/'
-      path: '/'
-      fullPath: '/admin/'
-      preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/servicos': {
-      id: '/admin/servicos'
-      path: '/servicos'
-      fullPath: '/admin/servicos'
-      preLoaderRoute: typeof AdminServicosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/premios': {
-      id: '/admin/premios'
-      path: '/premios'
-      fullPath: '/admin/premios'
-      preLoaderRoute: typeof AdminPremiosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/precos': {
-      id: '/admin/precos'
-      path: '/precos'
-      fullPath: '/admin/precos'
-      preLoaderRoute: typeof AdminPrecosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/postos': {
-      id: '/admin/postos'
-      path: '/postos'
-      fullPath: '/admin/postos'
-      preLoaderRoute: typeof AdminPostosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/notificacoes': {
-      id: '/admin/notificacoes'
-      path: '/notificacoes'
-      fullPath: '/admin/notificacoes'
-      preLoaderRoute: typeof AdminNotificacoesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/insights': {
-      id: '/admin/insights'
-      path: '/insights'
-      fullPath: '/admin/insights'
-      preLoaderRoute: typeof AdminInsightsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/clientes': {
-      id: '/admin/clientes'
-      path: '/clientes'
-      fullPath: '/admin/clientes'
-      preLoaderRoute: typeof AdminClientesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/banners': {
-      id: '/admin/banners'
-      path: '/banners'
-      fullPath: '/admin/banners'
-      preLoaderRoute: typeof AdminBannersRouteImport
-      parentRoute: typeof AdminRoute
-    }
   }
 }
 
-interface AdminRouteChildren {
-  AdminBannersRoute: typeof AdminBannersRoute
-  AdminClientesRoute: typeof AdminClientesRoute
-  AdminInsightsRoute: typeof AdminInsightsRoute
-  AdminNotificacoesRoute: typeof AdminNotificacoesRoute
-  AdminPostosRoute: typeof AdminPostosRoute
-  AdminPrecosRoute: typeof AdminPrecosRoute
-  AdminPremiosRoute: typeof AdminPremiosRoute
-  AdminServicosRoute: typeof AdminServicosRoute
-  AdminIndexRoute: typeof AdminIndexRoute
-}
-
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminBannersRoute: AdminBannersRoute,
-  AdminClientesRoute: AdminClientesRoute,
-  AdminInsightsRoute: AdminInsightsRoute,
-  AdminNotificacoesRoute: AdminNotificacoesRoute,
-  AdminPostosRoute: AdminPostosRoute,
-  AdminPrecosRoute: AdminPrecosRoute,
-  AdminPremiosRoute: AdminPremiosRoute,
-  AdminServicosRoute: AdminServicosRoute,
-  AdminIndexRoute: AdminIndexRoute,
-}
-
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
   AtualizarSenhaRoute: AtualizarSenhaRoute,
   LoginRoute: LoginRoute,
   MeusDadosRoute: MeusDadosRoute,

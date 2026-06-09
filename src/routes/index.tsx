@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { InstallButton } from "@/components/InstallButton";
 import logoBranca from "@/abastece.png";
 import logoPreta from "@/abastece2.png";
@@ -10,6 +10,9 @@ import { usePoints } from "@/hooks/use-points";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
 import { useRewards, usePremium, type Reward } from "@/hooks/use-rewards";
 import { supabase } from "@/integrations/supabase/client";
+import { usePostos, useServicos } from "@/hooks/use-data-queries";
+import { fmtCurrency } from "@/lib/utils-fmt";
+import { AccessControl } from "@/components/AccessControl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,28 +35,41 @@ import { Label } from "@/components/ui/label";
 import { QRCodeSVG } from "qrcode.react";
 import {
   LogOut,
-  Home,
   Car,
   Wrench,
   Gift,
   AlertTriangle,
   Crown,
-  Sparkles,
-  Lock,
-  CheckCircle2,
   Loader2,
   LogIn,
   Sun,
   Moon,
   Star,
+  StarHalf,
   User,
-  TrendingUp,
   MapPin,
-  Camera,
-  Users,
-  Share2,
+  Heart,
+  Navigation,
+  ChevronRight,
+  TrendingUp,
+  BarChart3,
+  Plus,
   History,
+  Droplets,
+  Zap,
+  Award,
+  Trophy,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -69,35 +85,30 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-type Section = "home" | "postos" | "carro" | "servicos" | "plus";
+type Section = "home" | "postos" | "carro" | "servicos" | "plus" | "planos";
 type Fuel = "etanol" | "gasolina" | "diesel";
 type SortBy = "price" | "distance";
 
 type Produto = { name: string; price: string };
 
 type Posto = {
+  id: string;
   name: string;
   address: string;
   hours: string;
   prices: Record<Fuel, number>;
   distance: number;
   verifiedBy: number;
-  produtos: Produto[];
+  produtos?: Produto[];
+  likes: number;
+  dislikes: number;
+  lat?: number;
+  lng?: number;
 };
-
-const convPadrao: Produto[] = [
-  { name: "Café Expresso", price: "R$ 4,50" },
-  { name: "Água Mineral 500ml", price: "R$ 3,00" },
-  { name: "Pão de Queijo", price: "R$ 5,00" },
-  { name: "Salgado Assado", price: "R$ 7,50" },
-  { name: "Refrigerante Lata", price: "R$ 6,00" },
-  { name: "Chocolate", price: "R$ 4,00" },
-];
-
-const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 
 type Servico = {
   name: string;
+  empresa_nome?: string;
   address?: string;
   hours?: string;
   price: string;
@@ -108,83 +119,25 @@ type Servico = {
   whatsapp?: string;
 };
 
+const fmt = fmtCurrency;
+
+const generateHistoryData = (currentPrice: number) => {
+  const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  return days.map((day, i) => ({
+    name: day,
+    price: currentPrice + (Math.random() * 0.4 - 0.2),
+  }));
+};
+
 function Index() {
   // 1. ESTADOS PRINCIPAIS
-  const [postos, setPostos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dadosServicos, setDadosServicos] = useState<Servico[]>([]);
-  const { user, displayName, initials, signOut, loading: authLoading } = useAuth(); 
+  const { data: postos = [], isLoading: loadingPostos } = usePostos();
+  const { data: dadosServicos = [], isLoading: loadingServicos } = useServicos();
+  const { user, displayName, signOut, loading: authLoading } = useAuth(); 
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const navigate = useNavigate();
 
-  // Função de agendamento unificada e trazida para dentro do componente
-  const agendarViaWhatsApp = (servico: Servico) => {
-    const numero = servico.whatsapp || "5517900000000"; 
-    const texto = `Olá! Vi o serviço de *${servico.name}* no App Abastece Votu e gostaria de agendar.`;
-    const url = `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
-    window.open(url, '_blank');
-  };
-
-  // 2. BUSCA DE DADOS DO BANCO
-  useEffect(() => {
-    async function fetchData() {
-      const { data } = await supabase.from('postos').select('*, precos(*)').eq('ativo', true);
-      if (data) {
-        const formatted = data.map(p => ({
-          ...p,
-          name: p.nome,
-          address: p.endereco,
-          hours: `${p.horario_abertura} — ${p.horario_fechamento}`,
-          prices: {
-            etanol: p.precos?.find((pr: any) => pr.combustivel === 'etanol')?.valor || 0,
-            gasolina: p.precos?.find((pr: any) => pr.combustivel === 'gasolina_comum')?.valor || 0,
-            diesel: p.precos?.find((pr: any) => pr.combustivel === 'diesel')?.valor || 0
-          }
-        }));
-        setPostos(formatted);
-      }
-      setLoading(false);
-    }
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    async function buscarServicos() {
-      const { data, error } = await supabase
-  .from("servicos")
-  .select("nome, nome_servico, endereco, horario, preco, categoria")
-        .eq('ativo', true);
-
-      if (data) {
-        // Mapeamos os dados que vieram do banco para o formato que seu componente espera
-        const formatados = data.map(s => ({
-  name: s.nome_servico,
-  empresa_nome: s.nome, // 🌟 Alterado aqui: puxa a coluna correta do banco!
-  address: s.endereco,
-  hours: s.horario,
-  price: s.preco,
-  categoria: s.categoria
-}));
-        setDadosServicos(formatados as Servico[]);
-      }
-      
-      if (error) {
-        console.error("Erro ao buscar serviços:", error);
-      }
-      setLoading(false);
-    }
-
-    buscarServicos();
-  }, []);
-
-  // Lista ordenada de serviços usando useMemo para performance
-  const servicosOrdenados = useMemo(() => {
-    return [...dadosServicos].sort((a, b) => {
-      if (a.destaque && !b.destaque) return -1;
-      if (!a.destaque && b.destaque) return 1;
-      return (b.ordem || 0) - (a.ordem || 0);
-    });
-  }, [dadosServicos]);
+  const loading = loadingPostos || loadingServicos;
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -199,25 +152,26 @@ function Index() {
   // 3. OUTROS ESTADOS E HOOKS
   const userId = user?.id ?? null;
   const [section, setSection] = useState<Section>("home");
-  const [showPointsPanel, setShowPointsPanel] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [fuel, setFuel] = useState<Fuel>("etanol");
+  const [defaultFuel, setDefaultFuel] = useLocalStorage<Fuel>("abastece_default_fuel", "etanol");
+  const [fuel, setFuel] = useState<Fuel>(defaultFuel);
   const [sortBy, setSortBy] = useState<SortBy>("price");
   const [confirmed, setConfirmed] = useLocalStorage<string[]>("abastece_confirmed_today", []);
+  const [disliked, setDisliked] = useLocalStorage<string[]>("abastece_disliked_today", []);
+  const [favorites, setFavorites] = useLocalStorage<string[]>("abastece_favorites", []);
   const [showSplash, setShowSplash] = useState(true);
 
-  const { entries, balance, refresh: refreshPoints, awardForAction } = usePoints(userId);
+  const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
 
   const handleAbasteceMaisClick = () => {
-    if (user && isPremium) {
+    if (isPremium) {
       setSection("plus"); 
     } else {
       setSection("planos"); 
     }
   };
 
-  // Controle de Splash Screen Premium ajustado
   useEffect(() => {
     if (!loading && !authLoading) {
       const timer = setTimeout(() => {
@@ -227,20 +181,25 @@ function Index() {
     }
   }, [loading, authLoading]);
 
-  // Prevenção de quebra caso os postos ainda estejam vazios
   const sortedPostos = useMemo(() => {
     if (postos.length === 0) return [];
     const copy = [...postos];
-    copy.sort((a, b) => (sortBy === "price" ? (a.prices?.[fuel] || 0) - (b.prices?.[fuel] || 0) : (a.distance || 0) - (b.distance || 0)));
+    copy.sort((a, b) => {
+      const aFav = favorites.includes(a.name) ? 1 : 0;
+      const bFav = favorites.includes(b.name) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      return sortBy === "price" 
+        ? (a.prices?.[fuel] || 0) - (b.prices?.[fuel] || 0) 
+        : (a.distance || 0) - (b.distance || 0);
+    });
     return copy;
-  }, [fuel, sortBy, postos]);
+  }, [fuel, sortBy, postos, favorites]);
 
   const cheapest = useMemo(() => {
     if (postos.length === 0) return null;
-    return [...postos].sort((a, b) => (a.prices?.etanol || 0) - (b.prices?.etanol || 0))[0];
-  }, [postos]);
+    return [...postos].sort((a, b) => (a.prices?.[fuel] || 0) - (b.prices?.[fuel] || 0))[0];
+  }, [postos, fuel]);
 
-  // 4. TELA DE CARREGAMENTO (Unificada com o Splash)
   if (loading || authLoading || showSplash) {
     return (
       <div className="relative flex min-h-[100dvh] items-center justify-center bg-[#0B0F19] p-4 overflow-hidden">
@@ -273,141 +232,122 @@ function Index() {
     action();
   };
 
-  const goTo = (s: Section, requireLogin = false) => {
-    if (requireLogin) requireAuth(() => setSection(s));
-    else setSection(s);
+  const toggleFavorite = (name: string) => {
+    if (favorites.includes(name)) {
+      setFavorites(favorites.filter(f => f !== name));
+      fireToast("Removido dos favoritos");
+    } else {
+      setFavorites([...favorites, name]);
+      fireToast("Adicionado aos favoritos!");
+    }
+  };
+
+  const goTo = (s: Section) => {
+    setSection(s);
   };
 
   return (
-  <main className={`flex min-h-[100dvh] items-stretch justify-center sm:items-center sm:p-4 transition-colors duration-200 ${
-    theme === "dark" ? "bg-[#0f111a] text-white" : "bg-zinc-100 text-zinc-900"
-  }`}>
-    <InstallButton />
-    <div className={`relative flex h-[100dvh] w-full flex-col overflow-hidden sm:h-[860px] transition-colors duration-200 shadow-2xl ${
-      theme === "dark" ? "bg-[#0b0f19]" : "bg-white"
+    <main className={`flex min-h-[100dvh] items-stretch justify-center sm:items-center sm:p-4 transition-colors duration-200 ${
+      theme === "dark" ? "bg-[#0f111a] text-white" : "bg-zinc-100 text-zinc-900"
     }`}>
-      {/* Toast */}
+      <InstallButton />
+      <div className={`relative flex h-[100dvh] w-full flex-col overflow-hidden sm:h-[860px] transition-colors duration-200 shadow-2xl ${
+        theme === "dark" ? "bg-[#0b0f19]" : "bg-white"
+      }`}>
+        {toast && (
+          <div className="absolute top-20 left-1/2 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-top-4">
+            <div className="rounded-full bg-zinc-900/90 px-6 py-2.5 text-sm font-bold text-white shadow-2xl backdrop-blur-md border border-white/10">
+              {toast}
+            </div>
+          </div>
+        )}
 
-        {/* App bar */}
         <header className={`relative z-20 flex items-center justify-between border-b px-4 py-3 transition-colors duration-200 ${
-  theme === "dark" 
-    ? "border-white/5 bg-[#121214]/80 backdrop-blur-md" 
-    : "border-zinc-200 bg-white/95 backdrop-blur-md shadow-sm"
-}`}>
+          theme === "dark" 
+            ? "border-white/5 bg-[#121214]/80 backdrop-blur-md" 
+            : "border-zinc-200 bg-white/95 backdrop-blur-md shadow-sm"
+        }`}>
           <div className="flex items-center gap-2.5">
             <img
               src={theme === "dark" ? `${logoBranca}?v=1` : `${logoPreta}?v=2`}
-              alt="Abastece Votu — Seu melhor preço, sempre"
+              alt="Abastece Votu"
               className="h-9 w-auto object-contain"
             />
           </div>
           {user ? (
             <div className="flex items-center gap-2">
-              {isPremium && (
-                <button
-  onClick={handleAbasteceMaisClick}
-  className="flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 transition-all hover:bg-yellow-500/20"
->
-  <Crown className="h-3.5 w-3.5 text-yellow-500" />
-  <span className="text-[11px] font-bold uppercase tracking-wider text-yellow-500">
-    abastece+
-  </span>
-</button>
-              )}
+              <button
+                onClick={handleAbasteceMaisClick}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition-all ${
+                  isPremium 
+                    ? "border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/20" 
+                    : "border-white/10 bg-white/5 hover:bg-white/10"
+                }`}
+              >
+                <Crown className={`h-3.5 w-3.5 ${isPremium ? "text-yellow-500" : "text-zinc-400"}`} />
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${isPremium ? "text-yellow-500" : "text-zinc-400"}`}>
+                  abastece+
+                </span>
+              </button>
               <DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <button className={`flex items-center gap-2 rounded-full border px-1 py-1 pr-3 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-white/5" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80"}`}>
-      {/* Círculo com a Letra Inicial */}
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-500">
-        {displayName ? displayName.charAt(0).toUpperCase() : "U"}
-      </span>
-      {/* Nome do usuário */}
-      <span className={`max-w-[100px] truncate text-[12px] font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-        {displayName?.split(" ")[0] || "Perfil"}
-      </span>
-    </button>
-  </DropdownMenuTrigger>
-  
-  {/* O container agora muda de cor baseado no tema selecionado */}
- <DropdownMenuContent 
-  align="end" 
-  className={`w-54 rounded-[20px] shadow-xl p-2 transition-colors duration-200 border ${
-    theme === "dark" 
-      ? "bg-[#161618] border-white/10 text-white" 
-      : "bg-white border-zinc-200 text-zinc-900"
-  }`}
->
-  <DropdownMenuLabel className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-400"}`}>
-    Minha Conta
-  </DropdownMenuLabel>
-  
-  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
-  
-  {/* Opção de Configurações */}
-  <DropdownMenuItem 
-    onClick={() => navigate({ to: "/meus-dados" })}
-    className={`flex items-center gap-2 rounded-xl cursor-pointer p-2 transition-colors ${
-      theme === "dark" ? "hover:bg-white/5 focus:bg-white/5" : "hover:bg-zinc-100 focus:bg-zinc-100"
-    }`}
-  >
-    <User className="h-4 w-4 text-zinc-400" />
-    <span className="text-sm font-medium">Meus Dados</span>
-  </DropdownMenuItem>
+                <DropdownMenuTrigger asChild>
+                  <button className={`flex items-center gap-2 rounded-full border px-1 py-1 pr-3 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-white/5" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80"}`}>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-500">
+                      {displayName ? displayName.charAt(0).toUpperCase() : "U"}
+                    </span>
+                    <span className={`max-w-[100px] truncate text-[12px] font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+                      {displayName?.split(" ")[0] || "Perfil"}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className={`w-54 rounded-[20px] shadow-xl p-2 border ${theme === "dark" ? "bg-[#161618] border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900"}`}>
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 opacity-50">Minha Conta</DropdownMenuLabel>
+                  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+                  <DropdownMenuItem onClick={() => navigate({ to: "/meus-dados" })} className="flex items-center gap-2 rounded-xl cursor-pointer p-2">
+                    <User className="h-4 w-4 opacity-50" />
+                    <span className="text-sm font-medium">Meus Dados</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem className="flex items-center justify-between rounded-xl cursor-pointer p-2" onClick={(e) => e.preventDefault()}>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 opacity-50" />
+                      <span className="text-sm font-medium">Combustível Padrão</span>
+                    </div>
+                    <select 
+                      value={defaultFuel} 
+                      onChange={(e) => setDefaultFuel(e.target.value as Fuel)}
+                      className={`text-[10px] font-bold uppercase bg-transparent border-none focus:ring-0 ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}
+                    >
+                      <option value="etanol">Etanol</option>
+                      <option value="gasolina">Gasolina</option>
+                      <option value="diesel">Diesel</option>
+                    </select>
+                  </DropdownMenuItem>
 
-  {/* NOVA CHAVE DE TEMA CLARO / ESCURO */}
-  <DropdownMenuItem 
-    onClick={(e) => {
-      e.preventDefault(); // Evita que o menu feche sozinho ao clicar na chave
-      toggleTheme();
-    }}
-    className={`flex items-center justify-between rounded-xl cursor-pointer p-2 transition-colors ${
-      theme === "dark" ? "hover:bg-white/5 focus:bg-white/5" : "hover:bg-zinc-100 focus:bg-zinc-100"
-    }`}
-  >
-    <div className="flex items-center gap-2">
-      {theme === "dark" ? (
-        <Sun className="h-4 w-4 text-yellow-500" />
-      ) : (
-        <Moon className="h-4 w-4 text-indigo-500" />
-      )}
-      <span className="text-sm font-medium">Aparência</span>
-    </div>
-    
-    {/* INTERRUPTOR VISUAL (SWITCH) */}
-    <div className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
-      <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md transition-all" />
-    </div>
-  </DropdownMenuItem>
-
-  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
-  
-  {/* BOTÃO DE SAIR */}
-  <DropdownMenuItem 
-    onClick={async () => {
-      await signOut();
-      fireToast("Você saiu da conta");
-    }}
-    className={`flex items-center gap-2 rounded-xl cursor-pointer p-2 transition-colors text-red-400 ${
-      theme === "dark" ? "hover:bg-red-500/10 focus:bg-red-500/10" : "hover:bg-red-50 focus:bg-red-50 text-red-500"
-    }`}
-  >
-    <LogOut className="h-4 w-4" />
-    <span className="text-sm font-bold">Sair da Conta</span>
-  </DropdownMenuItem>
-</DropdownMenuContent>
-</DropdownMenu>
+                  <DropdownMenuItem onClick={(e) => { e.preventDefault(); toggleTheme(); }} className="flex items-center justify-between rounded-xl cursor-pointer p-2">
+                    <div className="flex items-center gap-2">
+                      {theme === "dark" ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-indigo-500" />}
+                      <span className="text-sm font-medium">Aparência</span>
+                    </div>
+                    <div className={`w-8 h-4.5 rounded-full p-0.5 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md" />
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
+                  <DropdownMenuItem onClick={async () => { await signOut(); fireToast("Você saiu da conta"); }} className="flex items-center gap-2 rounded-xl cursor-pointer p-2 text-red-500">
+                    <LogOut className="h-4 w-4" />
+                    <span className="text-sm font-bold">Sair da Conta</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ) : (
-            <button
-              onClick={() => navigate({ to: "/login", search: { redirect: "/" } })}
-              className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:opacity-90"
-            >
+            <button onClick={() => navigate({ to: "/login", search: { redirect: "/" } })} className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:opacity-90">
               <LogIn className="w-3 h-3" /> Entrar
             </button>
           )}
         </header>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 pb-[80px]">
           {section === "home" && (
             <HomeSection
@@ -419,128 +359,90 @@ function Index() {
               sortBy={sortBy}
               setSortBy={setSortBy}
               confirmed={confirmed}
+              disliked={disliked}
+              favorites={favorites}
+              onConfirm={(name) => {
+                setConfirmed([...confirmed, name]);
+                awardForAction("confirm_price");
+                fireToast("Obrigado! +5 pontos abastece+");
+              }}
+              onDislike={(name) => {
+                setDisliked([...disliked, name]);
+                fireToast("Obrigado pelo feedback!");
+              }}
+              onToggleFavorite={toggleFavorite}
               theme={theme}
-              onConfirm={(name) =>
-                requireAuth(() => {
-                  setConfirmed([...confirmed, name]);
-                  awardForAction("confirm_price");
-                  fireToast("Obrigado! +5 pontos abastece+");
-                }, "Faça login para confirmar o preço")
-              }
+              isPremium={isPremium}
             />
           )}
 
           {section === "carro" && (
-            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} />
+            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} isPremium={isPremium} />
           )}
 
-{section === "servicos" && (
-  <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
-    {/* Cabeçalho */}
-    <div className="flex items-center gap-2 mb-5 pl-1">
-      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>
-        🛠️
-      </span>
-      <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
-        Serviços em Votuporanga
-      </h3>
-    </div>
-
-    {loading ? (
-      <div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary" /></div>
-    ) : (
-      <div className="space-y-4">
-        {servicosOrdenados.length > 0 ? (
-  servicosOrdenados.map((s, index) => {
-    const isDark = theme === "dark";
-    console.log("Propriedades do serviço:", s);
-
-  
-  return (
-    <article
-      key={index}
-      className={`group relative flex flex-col rounded-[22px] border p-5 shadow-xl transition-all duration-300 ${
-        isDark ? "bg-[#161618] border-white/5" : "bg-white border-zinc-200"
-      }`}
-    >
-         <h3 className={`text-lg font-black uppercase mb-1 ${isDark ? "text-white" : "text-zinc-900"}`}>
-  {s.empresa_nome || "Nome da Empresa"}
-</h3>
-
-      <p className={`text-sm font-bold mb-3 ${isDark ? "text-blue-400" : "text-blue-600"}`}>
-        {s.name}
-      </p>
-
-      <div className="text-[11px] mb-4 opacity-70">
-        <p>{s.address}</p>
-        <p className="font-semibold mt-0.5">{s.hours}</p>
-      </div>
-
-      <div className="mb-4">
-        <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isDark ? "text-zinc-500" : "text-zinc-400"}`}>
-          Valor Estimado
-        </span>
-        <div className={`text-xl font-black ${isDark ? "text-white" : "text-zinc-900"}`}>
-          {s.price}
-        </div>
-      </div>
-
-      <Button 
-        onClick={() => agendarViaWhatsApp(s)}
-        className="w-full h-10 text-[12px] font-bold bg-primary hover:bg-primary/90 uppercase tracking-wider"
-      >
-        📅 Agendar no WhatsApp
-      </Button>
-    </article>
-  );
-})
-        ) : (
-          <p className="text-center text-sm text-zinc-500 pt-10">Nenhum serviço disponível no momento.</p>
-        )}
-      </div>
-    )}
-  </section>
-)}
-
+          {section === "servicos" && (
+            <ServicosSection dadosServicos={dadosServicos} loading={loadingServicos} theme={theme} />
+          )}
 
           {section === "plus" && (
-            <PlusSection
-              userId={userId}
-              balance={balance}
-              entries={entries.slice(0, 3)}
-              isPremium={isPremium}
-              setIsPremium={setIsPremium}
-              refreshPoints={refreshPoints}
-              requireAuth={requireAuth}
-              fireToast={fireToast}
-              theme= {theme}
+            <PlusSection 
+              userId={userId} 
+              balance={balance} 
+              entries={entries} 
+              isPremium={isPremium} 
+              setIsPremium={setIsPremium} 
+              refreshPoints={refreshPoints} 
+              requireAuth={requireAuth} 
+              fireToast={fireToast} 
+              theme={theme} 
+              confirmedCount={confirmed.length}
             />
+          )}
+
+          {section === "planos" && (
+            <PlanosSection userId={userId} setIsPremium={setIsPremium} fireToast={fireToast} theme={theme} />
           )}
         </div>
 
-      {/* Bottom nav — 4 tabs */}
-        <nav className={`absolute bottom-0 left-0 right-0 z-10 flex h-[64px] items-center justify-around border-t transition-colors duration-200 ${
-          theme === "dark"
-            ? "glass-panel border-white/5 text-white"
-            : "bg-white/95 border-zinc-200 text-zinc-600 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md"
+        <nav className={`absolute bottom-0 left-0 z-30 flex h-[70px] w-full items-center justify-around border-t px-2 pb-2 transition-colors duration-200 ${
+          theme === "dark" ? "border-white/5 bg-[#0b0f19]/90 backdrop-blur-lg" : "border-zinc-200 bg-white/95 backdrop-blur-lg shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"
         }`}>
-          <NavItem icon={<Home className="w-5 h-5" />} label="Início" active={section === "home"} onClick={() => setSection("home")} />
-          <NavItem icon={<Car className="w-5 h-5" />} label="Meu Carro" active={section === "carro"} onClick={() => goTo("carro", true)} />
-          <NavItem icon={<Wrench className="w-5 h-5" />} label="Serviços" active={section === "servicos"} onClick={() => setSection("servicos")} />
-          <NavItem icon={<Gift className="w-5 h-5" />} label="Prêmios" active={section === "plus"} onClick={() => goTo("plus", true)} />
+          <NavItem icon={<MapPin className="w-5 h-5" />} label="Postos" active={section === "home"} onClick={() => goTo("home")} theme={theme} />
+          <AccessControl requireAuth>
+            <NavItem icon={<Car className="w-5 h-5" />} label="Garagem" active={section === "carro"} onClick={() => goTo("carro")} theme={theme} />
+          </AccessControl>
+          <NavItem icon={<Wrench className="w-5 h-5" />} label="Serviços" active={section === "servicos"} onClick={() => goTo("servicos")} theme={theme} />
+          <AccessControl requireAuth>
+            <NavItem 
+              icon={
+                <div className="relative">
+                  <Gift className="w-5 h-5" />
+                  {!isPremium && user && (
+                    <Crown className="absolute -top-1 -right-1 h-2.5 w-2.5 text-yellow-500" />
+                  )}
+                </div>
+              } 
+              label="Prêmios" 
+              active={section === "plus" || section === "planos"} 
+              onClick={() => {
+                if (isPremium) goTo("plus");
+                else setSection("planos");
+              }} 
+              theme={theme}
+            />
+          </AccessControl>
         </nav>
       </div>
     </main>
   );
 }
 
-/* Auxiliar para itens da Bottom Nav */
-function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+function NavItem({ icon, label, active, onClick, theme }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void; theme: string }) {
   return (
     <button
       onClick={onClick}
       className={`flex flex-col items-center justify-center gap-1 w-14 h-full text-[10px] font-bold transition-colors ${
-        active ? "text-primary" : "text-muted-foreground hover:text-white"
+        active ? "text-emerald-500" : theme === "dark" ? "text-muted-foreground hover:text-white" : "text-zinc-400 hover:text-zinc-900"
       }`}
     >
       {icon}
@@ -549,35 +451,29 @@ function NavItem({ icon, label, active, onClick }: { icon: React.ReactNode; labe
   );
 }
 
-/* ---------- HOME ---------- */
-
 function HomeSection({
-  cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm, theme,
+  cheapest, fireToast, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, disliked, favorites, onConfirm, onDislike, onToggleFavorite, theme, isPremium,
 }: {
-  cheapest: Posto;
+  cheapest: Posto | null;
   fireToast: (m: string) => void;
   sortedPostos: Posto[];
   fuel: Fuel; setFuel: (f: Fuel) => void;
   sortBy: SortBy; setSortBy: (s: SortBy) => void;
-  confirmed: string[]; onConfirm: (name: string) => void;
-  theme: string;
+  confirmed: string[]; disliked: string[]; favorites: string[]; onConfirm: (name: string) => void; onDislike: (name: string) => void; onToggleFavorite: (name: string) => void;
+  theme: string; isPremium: boolean;
 }) {
   return (
     <>
-      <section className="mt-1 mb-4 flex flex-col gap-3 rounded-3xl bg-premium-gradient p-4 text-white shadow-lg shadow-blue-900/30">
-        
-        {/* Parte 1: Novo Carrossel Master Top substituindo o texto */}
+      <section className="mt-1 mb-4 flex flex-col gap-3 rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-900 p-4 text-white shadow-lg shadow-emerald-900/20">
         <div className="w-full overflow-hidden rounded-2xl border border-white/10 shadow-sm">
-          <AdCarousel onAdClick={() => fireToast("Anúncio Top Premium clicado!")} />
+          <AdCarousel onAdClick={() => fireToast("Anúncio clicado!")} />
         </div>
-
-        {/* Parte 2: Indicador do Combustível Mais Barato (Mantido como estava) */}
         <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/20 px-4 py-3 backdrop-blur">
           <span className="text-xl">⛽</span>
           <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">Etanol+ Barato em Votu</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">{fuel} mais barato</span>
             <strong className="text-sm font-extrabold">
-              {cheapest?.name || "Buscando..."} {cheapest ? `— R$ ${fmt(cheapest.prices.etanol)}` : ""}
+              {cheapest?.name || "Buscando..."} {cheapest ? `— R$ ${cheapest.prices[fuel].toFixed(2).replace('.', ',')}` : ""}
             </strong>
           </div>
         </div>
@@ -590,80 +486,128 @@ function HomeSection({
         sortBy={sortBy}
         setSortBy={setSortBy}
         confirmed={confirmed}
+        disliked={disliked}
+        favorites={favorites}
         onConfirm={onConfirm}
+        onDislike={onDislike}
+        onToggleFavorite={onToggleFavorite}
         theme={theme}
+        isPremium={isPremium}
       />
 
       <div className="mt-4">
-        <AdCarousel onAdClick={() => fireToast("Quer anunciar no Abastece Votu? Fale conosco!")} />
+        <AdCarousel onAdClick={() => fireToast("Quer anunciar aqui? Fale conosco!")} />
       </div>
     </>
   );
 }
 
-/* ---------- POSTOS ---------- */
+function PostRating({ likes = 0, dislikes = 0 }: { likes?: number; dislikes?: number }) {
+  const total = likes + dislikes;
+  if (total === 0) return <span className="text-[11px] text-muted-foreground italic">Novo</span>;
+
+  const rating = (likes / total) * 5;
+  const roundedRating = Math.round(rating * 2) / 2;
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex text-amber-500">
+        {Array.from({ length: 5 }).map((_, index) => {
+          const starValue = index + 1;
+          if (roundedRating >= starValue) return <Star key={index} size={13} fill="currentColor" />;
+          if (roundedRating === starValue - 0.5) return <StarHalf key={index} size={13} fill="currentColor" />;
+          return <Star key={index} size={13} className="text-muted-foreground opacity-30" />;
+        })}
+      </div>
+      <span className="text-[11px] font-bold text-muted-foreground ml-0.5">
+        {rating.toFixed(1)} <span className="font-normal opacity-70">({total})</span>
+      </span>
+    </div>
+  );
+}
+
+function PriceChart({ data, theme }: { data: any[]; theme: string }) {
+  return (
+    <div className="h-32 w-full mt-4">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === "dark" ? "#ffffff10" : "#00000010"} />
+          <XAxis 
+            dataKey="name" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fontSize: 10, fill: theme === "dark" ? "#9ca3af" : "#6b7280" }}
+          />
+          <YAxis hide domain={['dataMin - 0.1', 'dataMax + 0.1']} />
+          <Tooltip 
+            contentStyle={{ 
+              backgroundColor: theme === "dark" ? "#1f2937" : "#ffffff", 
+              borderColor: theme === "dark" ? "#374151" : "#e5e7eb",
+              borderRadius: '8px',
+              fontSize: '12px'
+            }}
+            itemStyle={{ color: '#10b981' }}
+          />
+          <Area 
+            type="monotone" 
+            dataKey="price" 
+            stroke="#10b981" 
+            strokeWidth={2}
+            fillOpacity={1} 
+            fill="url(#colorPrice)" 
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 function PostosSection({
-  sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, onConfirm, theme
+  sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, disliked, favorites, onConfirm, onDislike, onToggleFavorite, theme, isPremium
 }: {
-  sortedPostos: any[];
-  fuel: "etanol" | "gasolina" | "diesel"; setFuel: (f: "etanol" | "gasolina" | "diesel") => void;
-  sortBy: "price" | "distance"; setSortBy: (s: "price" | "distance") => void;
-  confirmed: string[]; onConfirm: (name: string) => void;
-  theme: string;
+  sortedPostos: Posto[];
+  fuel: Fuel; setFuel: (f: Fuel) => void;
+  sortBy: SortBy; setSortBy: (s: SortBy) => void;
+  confirmed: string[]; disliked: string[]; favorites: string[]; onConfirm: (name: string) => void; onDislike: (name: string) => void; onToggleFavorite: (name: string) => void;
+  theme: string; isPremium: boolean;
 }) {
-  const [convPosto, setConvPosto] = useState<any | null>(null);
+  const [convPosto, setConvPosto] = useState<Posto | null>(null);
+  const [showChart, setShowChart] = useState<string | null>(null);
 
-  // Auxiliar para formatar moeda mantendo o padrão visual
-  const fmt = (val: number) => {
+  const fmtPrice = (val: number) => {
     if (val === undefined || val === null || isNaN(val)) return "—";
     return val.toFixed(2).replace('.', ',');
   };
 
-  /**
-   * MAPEAMENTO CIRÚRGICO:
-   * Converte a chave simplificada do app para o formato real gravado no Supabase
-   */
-  const getPrecoBanco = (posto: any, combustivelAtual: string) => {
-    if (!posto || !posto.prices) return 0;
-    
-    if (combustivelAtual === "gasolina") {
-      // Se o app pedir "gasolina", buscamos "gasolina_comum" ou "gasolina_aditivada" vindas do Supabase
-      return posto.prices["gasolina_comum"] ?? posto.prices["gasolina"] ?? 0;
-    }
-    
-    return posto.prices[combustivelAtual] ?? 0;
+  const openGPS = (p: Posto) => {
+    const lat = p.lat || -20.4222;
+    const lng = p.lng || -49.9733;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    window.open(url, '_blank');
   };
 
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
-      
-      {/* CABEÇALHO E FILTROS ESTILO FINTECH */}
       <div className="mb-5 space-y-3">
-        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 transition-colors ${
-          theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"
-        }`}>
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
           Lista de Postos
         </h3>
         
-        {/* Filtro de Combustível */}
-        <div className={`flex gap-2 rounded-2xl p-1.5 border transition-all duration-200 ${
-          theme === "dark" 
-            ? "bg-[#121214] border-white/5" 
-            : "bg-zinc-100 border-zinc-200/80"
-        }`}>
+        <div className={`flex gap-2 rounded-2xl p-1.5 border ${theme === "dark" ? "bg-[#121214] border-white/5" : "bg-zinc-100 border-zinc-200"}`}>
           {(["etanol", "gasolina", "diesel"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFuel(f)}
-              className={`flex-1 rounded-xl py-2 text-[12px] font-bold capitalize transition-all duration-200 ${
+              className={`flex-1 rounded-xl py-2 text-[12px] font-bold capitalize transition-all ${
                 fuel === f
-                  ? theme === "dark"
-                    ? "bg-white/10 text-white shadow-md border border-white/10"
-                    : "bg-white text-zinc-900 shadow-sm border border-zinc-200"
-                  : theme === "dark"
-                    ? "text-muted-foreground hover:bg-white/5 hover:text-white"
-                    : "text-zinc-500 hover:bg-zinc-200/60 hover:text-zinc-900"
+                  ? theme === "dark" ? "bg-white/10 text-white shadow-md border border-white/10" : "bg-white text-zinc-900 shadow-sm border border-zinc-200"
+                  : theme === "dark" ? "text-muted-foreground hover:bg-white/5 hover:text-white" : "text-zinc-500 hover:bg-zinc-200/60 hover:text-zinc-900"
               }`}
             >
               {f}
@@ -671,194 +615,243 @@ function PostosSection({
           ))}
         </div>
 
-        {/* Filtro de Ordenação */}
         <div className="flex gap-2">
           <button
             onClick={() => setSortBy("price")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all ${
               sortBy === "price"
-                ? theme === "dark"
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm"
-                : theme === "dark"
-                  ? "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white"
-                  : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
+                ? theme === "dark" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm"
+                : theme === "dark" ? "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white" : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
             }`}
           >
-            Análise de Preço
+            Menor Preço
           </button>
-
           <button
             onClick={() => setSortBy("distance")}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl border py-2 text-[11px] font-bold uppercase tracking-wider transition-all ${
               sortBy === "distance"
-                ? theme === "dark"
-                  ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                  : "border-blue-200 bg-blue-50 text-blue-600 shadow-sm"
-                : theme === "dark"
-                  ? "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white"
-                  : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
+                ? theme === "dark" ? "border-blue-500/30 bg-blue-500/10 text-blue-400" : "border-blue-200 bg-blue-50 text-blue-600 shadow-sm"
+                : theme === "dark" ? "border-white/5 bg-[#121214] text-muted-foreground hover:border-white/10 hover:text-white" : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:text-zinc-900 shadow-sm"
             }`}
           >
-            Proximidade
+            Mais Próximo
           </button>
         </div>
       </div>
 
-      {/* LISTA DE CARDS ALTA FIDELIDADE */}
       <div className="space-y-4">
         {sortedPostos.map((p) => {
           const isConfirmed = confirmed.includes(p.name);
-          const precoExibicao = getPrecoBanco(p, fuel);
+          const isDisliked = disliked.includes(p.name);
+          const isFavorite = favorites.includes(p.name);
+          const precoExibicao = p.prices[fuel] || 0;
+          const chartData = useMemo(() => generateHistoryData(precoExibicao), [precoExibicao]);
           
           return (
             <article 
               key={p.name} 
-              className={`relative flex flex-col rounded-[22px] border p-4 transition-all duration-200 ${
-                theme === "dark"
-                  ? "border-white/10 bg-[#161618] shadow-xl hover:bg-[#1a1a1d] hover:border-white/20"
-                  : "border-zinc-200 bg-white shadow-md hover:shadow-lg hover:border-zinc-300"
-              }`}
+              className={`relative flex flex-col rounded-[22px] border p-4 transition-all ${
+                theme === "dark" ? "border-white/10 bg-[#161618] shadow-xl hover:bg-[#1a1a1d]" : "border-zinc-200 bg-white shadow-md hover:shadow-lg"
+              } ${isFavorite ? (theme === "dark" ? "ring-1 ring-emerald-500/30" : "ring-1 ring-emerald-500/20") : ""}`}
             >
-              {/* Topo: Informações do Posto */}
+              {isFavorite && (
+                <div className="absolute -top-2 -right-2 z-10 bg-emerald-500 text-white p-1.5 rounded-full shadow-lg">
+                  <Heart size={12} fill="currentColor" />
+                </div>
+              )}
+
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="min-w-0">
-                  <h4 className={`truncate text-base font-bold transition-colors ${
-                    theme === "dark" ? "text-white" : "text-zinc-900"
-                  }`}>{p.name}</h4>
-                  <p className={`truncate text-[11px] transition-colors ${
-                    theme === "dark" ? "text-zinc-400" : "text-zinc-500"
-                  }`}>{p.address}</p>
-                  <p className={`mt-0.5 text-[10px] font-semibold transition-colors ${
-                    theme === "dark" ? "text-zinc-500/80" : "text-zinc-400/90"
-                  }`}>{p.hours}</p>
+                  <div className="flex items-center gap-2">
+                    <h4 className={`truncate text-base font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>{p.name}</h4>
+                    <button onClick={() => onToggleFavorite(p.name)} className={`transition-colors ${isFavorite ? "text-emerald-500" : "text-zinc-400 hover:text-emerald-500"}`}>
+                      <Heart size={14} fill={isFavorite ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+                  <p className={`truncate text-[11px] ${theme === "dark" ? "text-zinc-400" : "text-zinc-500"}`}>{p.address}</p>
+                  <p className={`mt-0.5 text-[10px] font-semibold opacity-50`}>{p.hours}</p>
                 </div>
                 
-                {p.produtos && (
-                  <button
-                    onClick={() => setConvPosto(p)}
-                    className="shrink-0 flex items-center gap-1.5 rounded-full bg-brand-purple/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-brand-purple border border-brand-purple/20 transition-all hover:bg-brand-purple/20"
-                  >
-                    Loja
+                <div className="flex gap-2">
+                  <button onClick={() => openGPS(p)} className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-full transition-all ${theme === "dark" ? "bg-white/5 text-emerald-400 hover:bg-emerald-500/10" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"}`}>
+                    <Navigation size={14} />
                   </button>
-                )}
+                  {p.produtos && (
+                    <button onClick={() => setConvPosto(p)} className="shrink-0 rounded-full bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500 border border-emerald-500/20">Loja</button>
+                  )}
+                </div>
               </div>
 
-              {/* Meio: Tipografia de Preço Imponente */}
               <div className="flex items-end justify-between py-2">
                 <div>
-                  <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 transition-colors ${
-                    theme === "dark" ? "text-zinc-500" : "text-zinc-400"
-                  }`}>
-                    Preço {fuel}
-                  </span>
+                  <span className={`block text-[10px] font-bold uppercase tracking-widest mb-0.5 opacity-50`}>Preço {fuel}</span>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-sm font-bold transition-colors ${
-                      theme === "dark" ? "text-emerald-500/70" : "text-emerald-600/80"
-                    }`}>R$</span>
-                    <span className={`text-4xl font-black tracking-tighter drop-shadow-sm transition-colors ${
-                      theme === "dark" ? "text-emerald-400" : "text-emerald-600"
-                    }`}>
-                      {fmt(precoExibicao)}
-                    </span>
+                    <span className="text-sm font-bold text-emerald-500">R$</span>
+                    <span className={`text-4xl font-black tracking-tighter text-emerald-500`}>{fmtPrice(precoExibicao)}</span>
                   </div>
                 </div>
-                <div className="mb-1 text-right">
-                  <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border transition-colors ${
-                    theme === "dark"
-                      ? "bg-white/5 border-white/5 text-zinc-400"
-                      : "bg-zinc-100 border-zinc-200 text-zinc-600"
-                  }`}>
-                    {p.distance} km
+                <div className="flex flex-col items-end gap-2 mb-1">
+                  <span className={`rounded-lg px-2.5 py-1 text-[11px] font-bold border ${theme === "dark" ? "bg-white/5 border-white/5 text-zinc-400" : "bg-zinc-100 border-zinc-200 text-zinc-600"}`}>
+                    {p.distance || 0} km
                   </span>
+                  <button 
+                    onClick={() => setShowChart(showChart === p.name ? null : p.name)}
+                    className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${theme === "dark" ? "text-emerald-400 hover:text-emerald-300" : "text-emerald-600 hover:text-emerald-500"}`}
+                  >
+                    <BarChart3 size={12} />
+                    {showChart === p.name ? "Ocultar" : "Histórico"}
+                  </button>
                 </div>
               </div>
 
-              {/* Rodapé: Validação */}
-              <div className={`mt-3 flex items-center justify-between border-t pt-3 transition-colors ${
-                theme === "dark" ? "border-white/5" : "border-zinc-100"
-              }`}>
-                <div className="flex flex-col text-[10px]">
-                  <span className={`transition-colors ${
-                    theme === "dark" ? "text-zinc-500" : "text-zinc-400"
-                  }`}>Verificado por {p.verifiedBy}</span>
-                  {isConfirmed && (
-                    <span className={`font-bold mt-0.5 transition-colors ${
-                      theme === "dark" ? "text-emerald-400" : "text-emerald-600"
-                    }`}>✓ Você validou hoje</span>
+              {showChart === p.name && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  {isPremium ? (
+                    <PriceChart data={chartData} theme={theme} />
+                  ) : (
+                    <div className={`mt-4 p-4 rounded-2xl border border-dashed flex flex-col items-center text-center gap-2 ${theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"}`}>
+                      <Crown size={20} className="text-yellow-500" />
+                      <p className="text-[11px] font-bold">Histórico de preços é exclusivo Abastece+ Pro</p>
+                      <button className="text-[10px] font-black uppercase text-emerald-500 underline">Assinar agora</button>
+                    </div>
                   )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-1">
+                <div>
+                  <span className="mb-1 block text-[10px] uppercase font-semibold tracking-wider opacity-50">Avaliação:</span>
+                  <PostRating likes={(p.likes || 0) + (isConfirmed ? 1 : 0)} dislikes={(p.dislikes || 0) + (isDisliked ? 1 : 0)} />
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <button
-                    disabled={isConfirmed}
-                    onClick={() => onConfirm(p.name)}
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
-                      isConfirmed 
-                        ? theme === "dark"
+                  <AccessControl requireAuth>
+                    <button
+                      disabled={isConfirmed || isDisliked}
+                      onClick={() => onConfirm(p.name)}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
+                        isConfirmed 
                           ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 scale-105" 
-                          : "bg-emerald-50 border-emerald-200 text-emerald-600 scale-105 shadow-sm"
-                        : theme === "dark"
-                          ? "bg-white/5 border-white/10 text-muted-foreground hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400"
-                          : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-600 shadow-sm"
-                    }`}
-                    title="Preço correto (Like)"
-                  >
-                    👍
-                  </button>
-
-                  <button
-                    className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
-                      theme === "dark"
-                        ? "border-white/10 bg-white/5 text-muted-foreground hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-red-50 hover:border-red-200 hover:text-red-600 shadow-sm"
-                    }`}
-                    title="Preço incorrecto (Dislike)"
-                    onClick={() => {}}
-                  >
-                    👎
-                  </button>
+                          : theme === "dark" ? "bg-white/5 border-white/10 hover:bg-emerald-500/10" : "bg-zinc-50 border-zinc-200 hover:bg-emerald-50"
+                      }`}
+                      title="Preço correto (Like)"
+                    >👍</button>
+                  </AccessControl>
+                  <AccessControl requireAuth>
+                    <button
+                      disabled={isConfirmed || isDisliked}
+                      onClick={() => onDislike(p.name)}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full border transition-all ${
+                        isDisliked 
+                          ? "bg-red-500/20 border-red-500/30 text-red-400 scale-105" 
+                          : theme === "dark" ? "bg-white/5 border-white/10 hover:bg-red-500/10" : "bg-zinc-50 border-zinc-200 hover:bg-red-50"
+                      }`}
+                      title="Preço incorreto (Dislike)"
+                    >👎</button>
+                  </AccessControl>
                 </div>
               </div>
             </article>
           );
         })}
       </div>
+
+      <Dialog open={!!convPosto} onOpenChange={() => setConvPosto(null)}>
+        <DialogContent className={`sm:max-w-[425px] rounded-[32px] p-0 overflow-hidden border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="relative p-6 pb-0">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black tracking-tight">{convPosto?.name}</DialogTitle>
+              <DialogDescription className="text-xs opacity-60">Produtos disponíveis na loja de conveniência</DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="p-6 pt-4 space-y-3">
+            {convPosto?.produtos?.map((prod, i) => (
+              <div key={i} className={`flex items-center justify-between p-3 rounded-2xl border ${theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-100"}`}>
+                <span className="text-sm font-bold">{prod.name}</span>
+                <span className="text-sm font-black text-emerald-500">{prod.price}</span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-/* ---------- MEU CARRO ---------- */
+function ServicosSection({ dadosServicos, loading, theme }: { dadosServicos: Servico[]; loading: boolean; theme: string }) {
+  const agendarViaWhatsApp = (servico: Servico) => {
+    const numero = servico.whatsapp || "5517900000000"; 
+    const texto = `Olá! Vi o serviço de *${servico.name}* no App Abastece Votu e gostaria de agendar.`;
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`, '_blank');
+  };
 
-function CarroSection({
-  user, requireAuth, fireToast, theme,
-}: { 
-  user: { id: string } | null; 
-  requireAuth: (fn: () => void, m?: string) => void; 
-  fireToast: (m: string) => void;
-  theme: string; // Adicionado o tema aqui
-}) {
+  const servicosOrdenados = useMemo(() => {
+    return [...dadosServicos].sort((a, b) => {
+      if (a.destaque && !b.destaque) return -1;
+      if (!a.destaque && b.destaque) return 1;
+      return (b.ordem || 0) - (a.ordem || 0);
+    });
+  }, [dadosServicos]);
+
+  return (
+    <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
+      <div className="flex items-center gap-2 mb-5 pl-1">
+        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>🛠️</span>
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Serviços em Votuporanga</h3>
+      </div>
+      {loading ? (
+        <div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary" /></div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 pb-20">
+          {servicosOrdenados.map((s, i) => (
+            <div key={i} className={`relative overflow-hidden rounded-[22px] border p-5 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-[#1a1a1d]" : "border-zinc-200 bg-white shadow-md hover:shadow-lg"}`}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className={`truncate text-lg font-black tracking-tight ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>{s.name}</h4>
+                    {s.destaque && <span className="bg-yellow-500/20 text-yellow-500 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Destaque</span>}
+                  </div>
+                  <p className="text-[11px] opacity-60 font-bold uppercase tracking-wider text-emerald-500">{s.empresa_nome}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-black text-emerald-500">{s.price}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-3 h-3 opacity-40" />
+                  <span className="text-[11px] opacity-60 truncate max-w-[150px]">{s.address}</span>
+                </div>
+                <Button onClick={() => agendarViaWhatsApp(s)} className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-6">Agendar</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user: any; requireAuth: any; fireToast: any; theme: string; isPremium: boolean }) {
   const { vehicle, save } = useVehicle(user?.id ?? null);
-  const [form, setForm] = useState({
-    marca: "", modelo: "", ano: "", placa: "",
-    licenciamento_vencimento: "", seguro_vencimento: "",
-  });
-  
+  const [form, setForm] = useState({ marca: "", modelo: "", ano: "", placa: "", licenciamento_vencimento: "", seguro_vencimento: "", km_atual: "" });
   const [isExpanded, setIsExpanded] = useState(true);
+  const [abastecimentos, setAbastecimentos] = useLocalStorage<any[]>("abastece_fuel_history", []);
+  const [showFuelModal, setShowFuelModal] = useState(false);
+  const [fuelForm, setFuelForm] = useState({ data: new Date().toISOString().split('T')[0], litros: "", valor: "", km: "" });
 
   useEffect(() => {
     if (vehicle) {
-      setForm({
-        marca: vehicle.marca ?? "",
-        modelo: vehicle.modelo ?? "",
-        ano: vehicle.ano?.toString() ?? "",
-        placa: vehicle.placa ?? "",
-        licenciamento_vencimento: vehicle.licenciamento_vencimento ?? "",
+      setForm({ 
+        marca: vehicle.marca ?? "", 
+        modelo: vehicle.modelo ?? "", 
+        ano: vehicle.ano?.toString() ?? "", 
+        placa: vehicle.placa ?? "", 
+        licenciamento_vencimento: vehicle.licenciamento_vencimento ?? "", 
         seguro_vencimento: vehicle.seguro_vencimento ?? "",
+        km_atual: vehicle.km_atual?.toString() ?? ""
       });
-      if (vehicle.marca && vehicle.modelo) {
-        setIsExpanded(false);
-      }
+      if (vehicle.marca && vehicle.modelo) setIsExpanded(false);
     }
   }, [vehicle]);
 
@@ -867,19 +860,27 @@ function CarroSection({
     if (!user) return requireAuth(() => {});
     if (!form.marca || !form.modelo) return fireToast("Preencha marca e modelo");
     try {
-      await save({
-        marca: form.marca.trim(),
-        modelo: form.modelo.trim(),
-        ano: form.ano ? parseInt(form.ano, 10) : null,
-        placa: form.placa.trim() || null,
-        licenciamento_vencimento: form.licenciamento_vencimento || null,
+      await save({ 
+        marca: form.marca.trim(), 
+        modelo: form.modelo.trim(), 
+        ano: form.ano ? parseInt(form.ano, 10) : null, 
+        placa: form.placa.trim() || null, 
+        licenciamento_vencimento: form.licenciamento_vencimento || null, 
         seguro_vencimento: form.seguro_vencimento || null,
+        km_atual: form.km_atual ? parseInt(form.km_atual, 10) : null
       });
       fireToast("Veículo salvo com sucesso!");
       setIsExpanded(false);
-    } catch {
-      fireToast("Erro ao salvar o veículo");
-    }
+    } catch { fireToast("Erro ao salvar o veículo"); }
+  };
+
+  const handleAddFuel = () => {
+    if (!fuelForm.litros || !fuelForm.valor || !fuelForm.km) return fireToast("Preencha todos os campos");
+    const novo = { ...fuelForm, id: Date.now() };
+    setAbastecimentos([novo, ...abastecimentos]);
+    setShowFuelModal(false);
+    setFuelForm({ data: new Date().toISOString().split('T')[0], litros: "", valor: "", km: "" });
+    fireToast("Abastecimento registrado!");
   };
 
   const licDays = daysUntil(form.licenciamento_vencimento);
@@ -888,247 +889,203 @@ function CarroSection({
 
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 space-y-4 pt-2">
-      
       <div className="flex items-center gap-2 mb-4">
-        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>
-          🚗
-        </span>
-        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
-          Garagem
-        </h3>
+        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>🚗</span>
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Garagem</h3>
       </div>
-
-      {(licDays !== null && licDays <= 30) && (
-        <Alert tone={licDays < 0 ? "danger" : "warn"} title={licDays < 0 ? "Licenciamento vencido" : `Licenciamento vence em ${licDays} dias`} />
-      )}
-      {(segDays !== null && segDays <= 30) && (
-        <Alert tone={segDays < 0 ? "danger" : "warn"} title={segDays < 0 ? "Seguro vencido" : `Seguro vence em ${segDays} dias`} />
-      )}
-
+      
+      {(licDays !== null && licDays <= 30) && <Alert tone={licDays < 0 ? "danger" : "warn"} title={licDays < 0 ? "Licenciamento vencido" : `Licenciamento vence em ${licDays} dias`} />}
+      {(segDays !== null && segDays <= 30) && <Alert tone={segDays < 0 ? "danger" : "warn"} title={segDays < 0 ? "Seguro vencido" : `Seguro vence em ${segDays} dias`} />}
+      
       {!isExpanded && hasVehicle ? (
-        <div 
-          onClick={() => setIsExpanded(true)}
-          className={`group cursor-pointer relative overflow-hidden rounded-[22px] border p-5 shadow-xl transition-all duration-300 hover:-translate-y-0.5 ${
-            theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-[#1a1a1d] hover:border-white/20" : "border-zinc-200 bg-white hover:border-zinc-300 shadow-zinc-100"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <span className={`block text-[10px] font-bold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"}`}>
-                Veículo Principal
-              </span>
-              <h4 className={`mt-1 text-xl font-black tracking-tight transition-colors group-hover:text-emerald-500 ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-                {form.marca} {form.modelo}
-              </h4>
-              {form.placa && (
-                <div className={`mt-2.5 inline-block rounded-lg border px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-widest shadow-inner ${theme === "dark" ? "border-white/10 bg-white/5 text-white/80" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
-                  {form.placa}
+        <div className="space-y-4">
+          <div onClick={() => setIsExpanded(true)} className={`group cursor-pointer relative overflow-hidden rounded-[22px] border p-5 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-[#1a1a1d]" : "border-zinc-200 bg-white shadow-md hover:shadow-lg"}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-50">Veículo Principal</span>
+                <h4 className="mt-1 text-xl font-black tracking-tight">{form.marca} {form.modelo}</h4>
+                <div className="flex gap-2 mt-2.5">
+                  {form.placa && <div className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-widest ${theme === "dark" ? "border-white/10 bg-white/5" : "border-zinc-200 bg-zinc-50"}`}>{form.placa}</div>}
+                  {form.km_atual && <div className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest ${theme === "dark" ? "border-white/10 bg-white/5" : "border-zinc-200 bg-zinc-50"}`}>{form.km_atual} KM</div>}
                 </div>
-              )}
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">✏️</div>
             </div>
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all ${theme === "dark" ? "bg-white/5 text-muted-foreground group-hover:bg-emerald-500/10 group-hover:text-emerald-400" : "bg-zinc-100 text-zinc-400 group-hover:bg-emerald-500/10 group-hover:text-emerald-500"}`}>
-              ✏️
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => setShowFuelModal(true)}
+              className={`flex flex-col items-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-100 text-emerald-600"}`}
+            >
+              <Droplets size={24} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Abastecer</span>
+            </button>
+            <button 
+              onClick={() => fireToast("Em breve: Agendamento direto via app!")}
+              className={`flex flex-col items-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"}`}
+            >
+              <Wrench size={24} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Manutenção</span>
+            </button>
+          </div>
+
+          <div className={`rounded-[22px] border p-5 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <History size={16} className="opacity-50" />
+                <h4 className="text-[11px] font-bold uppercase tracking-widest">Últimos Abastecimentos</h4>
+              </div>
+              {!isPremium && <Crown size={14} className="text-yellow-500" />}
             </div>
+            
+            {isPremium ? (
+              <div className="space-y-3">
+                {abastecimentos.length > 0 ? abastecimentos.slice(0, 3).map((a: any) => (
+                  <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl ${theme === "dark" ? "bg-white/5" : "bg-zinc-50"}`}>
+                    <div>
+                      <p className="text-xs font-bold">{new Date(a.data).toLocaleDateString('pt-BR')}</p>
+                      <p className="text-[10px] opacity-50">{a.km} KM • {a.litros}L</p>
+                    </div>
+                    <span className="text-sm font-black text-emerald-500">R$ {a.valor}</span>
+                  </div>
+                )) : <p className="text-[10px] opacity-50 py-2 text-center">Nenhum registro ainda.</p>}
+              </div>
+            ) : (
+              <div className="py-4 text-center space-y-2">
+                <p className="text-[11px] opacity-60">Histórico de abastecimentos é exclusivo para assinantes.</p>
+                <button className="text-[10px] font-black uppercase text-emerald-500 underline">Assinar Abastece+</button>
+              </div>
+            )}
           </div>
         </div>
       ) : (
-        <form onSubmit={onSave} className={`relative rounded-[22px] border p-5 shadow-2xl ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
+        <form onSubmit={onSave} className={`relative rounded-[22px] border p-5 ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white shadow-lg"}`}>
           <div className="mb-4 flex items-center justify-between">
-            <h4 className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">
-              {hasVehicle ? "Editar Veículo" : "Novo Veículo"}
-            </h4>
-            {hasVehicle && (
-              <button type="button" onClick={() => setIsExpanded(false)} className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition ${theme === "dark" ? "bg-white/5 text-muted-foreground hover:bg-white/10" : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200"}`}>
-                ✕ Cancelar
-              </button>
-            )}
+            <h4 className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">{hasVehicle ? "Editar Veículo" : "Novo Veículo"}</h4>
+            {hasVehicle && <button type="button" onClick={() => setIsExpanded(false)} className="text-[10px] font-bold uppercase opacity-50">✕ Cancelar</button>}
           </div>
-          
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Marca"><Input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
-            <Field label="Modelo"><Input value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
-            <Field label="Ano"><Input value={form.ano} onChange={(e) => setForm({ ...form, ano: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
-            <Field label="Placa"><Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
-            <Field label="Venc. Licenciamento"><Input type="date" value={form.licenciamento_vencimento} onChange={(e) => setForm({ ...form, licenciamento_vencimento: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
-            <Field label="Venc. Seguro"><Input type="date" value={form.seguro_vencimento} onChange={(e) => setForm({ ...form, seguro_vencimento: e.target.value })} className={`${theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"}`} /></Field>
+            <Field label="Marca"><Input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            <Field label="Modelo"><Input value={form.modelo} onChange={(e) => setForm({ ...form, modelo: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            <Field label="Ano"><Input value={form.ano} onChange={(e) => setForm({ ...form, ano: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            <Field label="Placa"><Input value={form.placa} onChange={(e) => setForm({ ...form, placa: e.target.value.toUpperCase() })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            <Field label="KM Atual"><Input value={form.km_atual} onChange={(e) => setForm({ ...form, km_atual: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            <Field label="Venc. Seguro"><Input type="date" value={form.seguro_vencimento} onChange={(e) => setForm({ ...form, seguro_vencimento: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            <div className="col-span-2">
+              <Field label="Venc. Licenciamento"><Input type="date" value={form.licenciamento_vencimento} onChange={(e) => setForm({ ...form, licenciamento_vencimento: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            </div>
           </div>
-          <Button type="submit" className="mt-5 w-full rounded-xl bg-emerald-500 py-3 font-bold text-white transition-all hover:bg-emerald-600">
-            {hasVehicle ? "Atualizar Dados" : "Salvar na Garagem"}
-          </Button>
+          <Button type="submit" className="mt-5 w-full rounded-xl bg-emerald-500 py-3 font-bold text-white">Salvar na Garagem</Button>
         </form>
       )}
 
+      <Dialog open={showFuelModal} onOpenChange={setShowFuelModal}>
+        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black">Registrar Abastecimento</DialogTitle>
+              <DialogDescription className="opacity-60">Acompanhe seu consumo e gastos mensais.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <Field label="Data"><Input type="date" value={fuelForm.data} onChange={(e) => setFuelForm({...fuelForm, data: e.target.value})} className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+              <Field label="KM Atual"><Input type="number" value={fuelForm.km} onChange={(e) => setFuelForm({...fuelForm, km: e.target.value})} placeholder="45200" className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+              <Field label="Litros"><Input type="number" value={fuelForm.litros} onChange={(e) => setFuelForm({...fuelForm, litros: e.target.value})} placeholder="35.5" className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+              <Field label="Valor Total (R$)"><Input type="number" value={fuelForm.valor} onChange={(e) => setFuelForm({...fuelForm, valor: e.target.value})} placeholder="180.50" className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+            </div>
+            <Button onClick={handleAddFuel} className="mt-6 w-full rounded-xl bg-emerald-500 font-bold text-white">Salvar Registro</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="mt-8 space-y-4 pt-2 border-t border-zinc-500/10">
-        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 mb-3 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
-          Calculadoras Inteligentes
-        </h3>
-        <div className={`overflow-hidden rounded-[22px] border p-1 shadow-lg ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
-          <FlexCalculator theme={theme} />
-        </div>
-        <div className={`overflow-hidden rounded-[22px] border p-1 shadow-lg ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
-          <AverageCalculator theme={theme} />
-        </div>
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 mb-3 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Calculadoras Inteligentes</h3>
+        <div className={`overflow-hidden rounded-[22px] border p-1 ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}><FlexCalculator theme={theme} /></div>
+        <div className={`overflow-hidden rounded-[22px] border p-1 ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}><AverageCalculator theme={theme} /></div>
       </div>
     </section>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-[11px] font-semibold text-muted-foreground">{label}</Label>
-      {children}
-    </div>
-  );
+  return <div className="space-y-1"><Label className="text-[11px] font-semibold opacity-50">{label}</Label>{children}</div>;
 }
 
 function Alert({ tone, title }: { tone: "warn" | "danger"; title: string }) {
-  const cls = tone === "danger"
-    ? "border-destructive/40 bg-destructive/10 text-destructive"
-    : "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400";
-  return (
-    <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold ${cls}`}>
-      <AlertTriangle className="h-4 w-4 shrink-0" />
-      <span>{title}</span>
-    </div>
-  );
+  const cls = tone === "danger" ? "border-red-500/40 bg-red-500/10 text-red-500" : "border-yellow-500/40 bg-yellow-500/10 text-yellow-600";
+  return <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold ${cls}`}><AlertTriangle className="h-4 w-4 shrink-0" /><span>{title}</span></div>;
 }
 
 function FlexCalculator({ theme }: { theme: string }) {
-  const [e, setE] = useState("");
-  const [g, setG] = useState("");
-  
+  const [e, setE] = useState(""); const [g, setG] = useState("");
   const result = useMemo(() => {
-    const ev = parseFloat(e.replace(",", "."));
-    const gv = parseFloat(g.replace(",", "."));
+    const ev = parseFloat(e.replace(",", ".")); const gv = parseFloat(g.replace(",", "."));
     if (!ev || !gv) return null;
     const ratio = ev / gv;
-    return ratio <= 0.7
-      ? { winner: "Etanol compensa", pct: (ratio * 100).toFixed(0), good: true }
-      : { winner: "Gasolina compensa", pct: (ratio * 100).toFixed(0), good: false };
+    return ratio <= 0.7 ? { winner: "Etanol compensa", pct: (ratio * 100).toFixed(0), good: true } : { winner: "Gasolina compensa", pct: (ratio * 100).toFixed(0), good: false };
   }, [e, g]);
-
   return (
-    <div className={`space-y-3 rounded-2xl p-4 transition-colors duration-200 border ${
-      theme === "dark" 
-        ? "bg-[#161618] border-white/5" 
-        : "bg-white border-zinc-100 shadow-sm"
-    }`}>
-      <h4 className={`text-xs font-bold uppercase tracking-wider ${
-        theme === "dark" ? "text-muted-foreground" : "text-zinc-500"
-      }`}>
-        Calculadora Flex
-      </h4>
-      
+    <div className={`space-y-3 rounded-2xl p-4 border ${theme === "dark" ? "bg-[#161618] border-white/5" : "bg-white border-zinc-100 shadow-sm"}`}>
+      <h4 className="text-xs font-bold uppercase tracking-wider opacity-50">Calculadora Flex</h4>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Etanol (R$)">
-          <Input 
-            value={e} 
-            onChange={(ev) => setE(ev.target.value)} 
-            placeholder="3,27" 
-            inputMode="decimal"
-            className={`transition-colors ${
-              theme === "dark" ? "bg-[#121214] border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
-            }`}
-          />
-        </Field>
-        <Field label="Gasolina (R$)">
-          <Input 
-            value={g} 
-            onChange={(ev) => setG(ev.target.value)} 
-            placeholder="5,49" 
-            inputMode="decimal"
-            className={`transition-colors ${
-              theme === "dark" ? "bg-[#121214] border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
-            }`}
-          />
-        </Field>
+        <Field label="Etanol (R$)"><Input value={e} onChange={(ev) => setE(ev.target.value)} placeholder="3,27" inputMode="decimal" className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+        <Field label="Gasolina (R$)"><Input value={g} onChange={(ev) => setG(ev.target.value)} placeholder="5,49" inputMode="decimal" className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
       </div>
-
-      {result && (
-        <div className={`rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
-          result.good 
-            ? "bg-emerald-500/20 text-emerald-500" 
-            : theme === "dark" ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-500/10 text-indigo-600"
-        }`}>
-          {result.winner} ({result.pct}% da gasolina)
-        </div>
-      )}
+      {result && <div className={`rounded-lg px-3 py-2 text-sm font-bold ${result.good ? "bg-emerald-500/20 text-emerald-500" : "bg-indigo-500/20 text-indigo-400"}`}>{result.winner} ({result.pct}% da gasolina)</div>}
     </div>
   );
 }
 
 function AverageCalculator({ theme }: { theme: string }) {
-  console.log("Tema atual no componente:", theme);
-  const [km, setKm] = useState("");
-  const [l, setL] = useState("");
-  
+  const [km, setKm] = useState(""); const [l, setL] = useState("");
   const avg = useMemo(() => {
-    const k = parseFloat(km.replace(",", "."));
-    const lit = parseFloat(l.replace(",", "."));
-    if (!k || !lit) return null;
-    return (k / lit).toFixed(1);
+    const k = parseFloat(km.replace(",", ".")); const lit = parseFloat(l.replace(",", "."));
+    if (!k || !lit) return null; return (k / lit).toFixed(1);
   }, [km, l]);
-
   return (
-    <div className={`space-y-3 rounded-2xl p-4 border transition-colors ${
-      theme === "dark" 
-        ? "bg-[#121214] border-white/5" 
-        : "bg-white border-zinc-100 shadow-sm"
-    }`}>
-      <h4 className={`text-xs font-bold uppercase tracking-wider ${
-        theme === "dark" ? "text-muted-foreground" : "text-zinc-400"
-      }`}>
-        Média de Combustível
-      </h4>
-      
+    <div className={`space-y-3 rounded-2xl p-4 border ${theme === "dark" ? "bg-[#121214] border-white/5" : "bg-white border-zinc-100 shadow-sm"}`}>
+      <h4 className="text-xs font-bold uppercase tracking-wider opacity-50">Média de Combustível</h4>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Km percorridos">
-          <Input 
-            value={km} 
-            onChange={(e) => setKm(e.target.value)} 
-            placeholder="420" 
-            inputMode="decimal" 
-            className={`${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"}`}
-          />
-        </Field>
-        <Field label="Litros abastecidos">
-          <Input 
-            value={l} 
-            onChange={(e) => setL(e.target.value)} 
-            placeholder="38" 
-            inputMode="decimal" 
-            className={`${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"}`}
-          />
-        </Field>
+        <Field label="Km percorridos"><Input value={km} onChange={(e) => setKm(e.target.value)} placeholder="420" inputMode="decimal" className={theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
+        <Field label="Litros abastecidos"><Input value={l} onChange={(e) => setL(e.target.value)} placeholder="38" inputMode="decimal" className={theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
       </div>
-
-      {avg && (
-        <div className={`rounded-lg px-3 py-2 text-sm font-bold ${
-          theme === "dark" ? "bg-white/5 text-white" : "bg-zinc-100 text-zinc-900"
-        }`}>
-          Média: <span className="text-emerald-500">{avg} km/L</span>
-        </div>
-      )}
+      {avg && <div className={`rounded-lg px-3 py-2 text-sm font-bold ${theme === "dark" ? "bg-white/5 text-white" : "bg-zinc-100 text-zinc-900"}`}>Média: <span className="text-emerald-500">{avg} km/L</span></div>}
     </div>
   );
 }
 
-/* ---------- ABASTECE+ ---------- */
+function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: string | null; setIsPremium: any; fireToast: any; theme: string }) {
+  const subscribe = async () => {
+    if (!userId) return;
+    const { error } = await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
+    if (error) return fireToast("Erro ao assinar");
+    setIsPremium(true); fireToast("Bem-vindo ao abastece+ Premium!");
+  };
+  return (
+    <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
+      <div className="text-center space-y-2">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-xl text-white"><Crown className="h-10 w-10" /></div>
+        <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
+        <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
+      </div>
+      <div className="space-y-4">
+        {[{ icon: "🎁", title: "Resgate de Prêmios", desc: "Troque seus pontos por lavagens, combustíveis e mimos." }, { icon: "⚡", title: "Pontos em Dobro", desc: "Ganhe 2x mais pontos em cada validação de preço." }, { icon: "📊", title: "Histórico Detalhado", desc: "Acompanhe cada ponto ganho e gasto em tempo real." }, { icon: "🛡️", title: "Suporte Prioritário", desc: "Atendimento exclusivo via WhatsApp." }].map((feat, i) => (
+          <div key={i} className={`flex items-start gap-4 rounded-2xl border p-4 ${theme === "dark" ? "bg-white/5 border-white/10" : "bg-white border-zinc-100 shadow-sm"}`}>
+            <span className="text-2xl">{feat.icon}</span>
+            <div><h4 className="text-sm font-bold">{feat.title}</h4><p className="text-xs opacity-60">{feat.desc}</p></div>
+          </div>
+        ))}
+      </div>
+      <div className={`rounded-3xl p-6 text-center space-y-4 ${theme === "dark" ? "bg-emerald-900/40" : "bg-zinc-900 text-white"}`}>
+        <div><span className="text-xs font-bold uppercase tracking-widest opacity-70">Plano Mensal</span><div className="flex items-baseline justify-center gap-1 mt-1"><span className="text-lg font-bold">R$</span><span className="text-4xl font-black">9,90</span><span className="text-sm opacity-70">/mês</span></div></div>
+        <Button onClick={subscribe} className="w-full h-12 bg-white text-zinc-900 hover:bg-zinc-100 font-black rounded-xl">ASSINAR AGORA</Button>
+        <p className="text-[10px] opacity-50">Cancele quando quiser. Sem fidelidade.</p>
+      </div>
+    </section>
+  );
+}
 
-function PlusSection({
-  userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme
-}: {
-  userId: string | null;
-  balance: number;
-  entries: { id: string; delta: number; descricao: string; created_at: string }[];
-  isPremium: boolean;
-  setIsPremium: (b: boolean) => void;
-  refreshPoints: () => Promise<void>;
-  requireAuth: (fn: () => void, m?: string) => void;
-  fireToast: (m: string) => void;
-  theme: string; // <-- Tema injetado aqui
-}) {
+function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number }) {
   const rewards = useRewards();
   const [picked, setPicked] = useState<Reward | null>(null);
   const [showLock, setShowLock] = useState(false);
@@ -1136,15 +1093,8 @@ function PlusSection({
 
   const tryRedeem = (r: Reward) => {
     if (!userId) return requireAuth(() => {});
-    if (!isPremium) {
-      setPicked(r);
-      setShowLock(true);
-      return;
-    }
-    if (balance < r.custo_pontos) {
-      fireToast("Pontos insuficientes");
-      return;
-    }
+    if (!isPremium) { setPicked(r); setShowLock(true); return; }
+    if (balance < r.custo_pontos) { fireToast("Pontos insuficientes"); return; }
     setPicked(r);
   };
 
@@ -1152,185 +1102,107 @@ function PlusSection({
     if (!picked || !userId) return;
     const { data, error } = await (supabase.rpc as any)("redeem_reward", { _reward_id: picked.id });
     if (error || !data) return fireToast("Erro ao resgatar");
-    await refreshPoints();
-    setRedeemCode(data as string);
+    await refreshPoints(); setRedeemCode(data as string);
   };
 
-  const subscribe = async () => {
-    if (!userId) return;
-    await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
-    setIsPremium(true);
-    setShowLock(false);
-    fireToast("Bem-vindo ao abastece+ Premium!");
-  };
+  // Melhora 4.1: Sistema de Conquistas (Badges)
+  const badges = [
+    { id: 1, name: "Sentinela", icon: <ShieldCheck size={20} />, desc: "Validou 5 preços", goal: 5, current: confirmedCount },
+    { id: 2, name: "Explorador", icon: <MapPin size={20} />, desc: "Visitou 3 postos", goal: 3, current: Math.min(confirmedCount, 3) },
+    { id: 3, name: "VIP", icon: <Trophy size={20} />, desc: "Membro Abastece+", goal: 1, current: isPremium ? 1 : 0 },
+  ];
 
   return (
-    <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2">
-      
-      {/* ESPAÇO PARA BANNER DE ANÚNCIOS (Substituindo Saldo e Histórico) */}
-      <div className={`relative overflow-hidden rounded-[22px] border shadow-xl p-0.5 transition-colors ${
-        theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white shadow-zinc-100"
-      }`}>
-        <div className={`flex h-36 w-full items-center justify-center rounded-[20px] border border-dashed transition-colors ${
-          theme === "dark" ? "border-white/20 bg-[#1a1a1d]" : "border-zinc-300 bg-zinc-50"
-        }`}>
-          <div className="text-center opacity-60 flex flex-col items-center">
-            <span className="text-2xl mb-2">📢</span>
-            <p className={`text-[11px] font-bold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>
-              Espaço Publicitário
-            </p>
-            <p className={`text-[10px] mt-1 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-400"}`}>
-              Banner 300x100 ou equivalente
-            </p>
+    <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
+      <div className={`relative overflow-hidden rounded-[22px] border shadow-xl p-5 transition-all ${theme === "dark" ? "border-white/10 bg-gradient-to-br from-emerald-600 to-emerald-900 text-white" : "border-zinc-200 bg-zinc-900 text-white"}`}>
+        <div className="flex items-center justify-between mb-6">
+          <div><span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Saldo Disponível</span><div className="flex items-baseline gap-2 mt-1"><span className="text-4xl font-black tracking-tighter">{balance}</span><span className="text-sm font-bold opacity-80">pontos</span></div></div>
+          <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/10"><Crown className="h-6 w-6 text-yellow-400" /></div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between"><h4 className="text-[10px] font-bold uppercase tracking-widest opacity-60">Últimas Movimentações</h4><span className="text-[9px] font-medium opacity-40">Ver tudo</span></div>
+          <div className="space-y-2">
+            {entries.length > 0 ? entries.slice(0, 3).map((e) => (
+              <div key={e.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5">
+                <div className="flex flex-col"><span className="text-[11px] font-bold leading-tight">{e.descricao}</span><span className="text-[9px] opacity-50 mt-0.5">{new Date(e.created_at).toLocaleDateString('pt-BR')}</span></div>
+                <span className={`text-xs font-black ${e.delta > 0 ? "text-emerald-400" : "text-red-400"}`}>{e.delta > 0 ? `+${e.delta}` : e.delta}</span>
+              </div>
+            )) : <p className="text-[10px] opacity-50 py-2">Nenhuma movimentação ainda.</p>}
           </div>
         </div>
       </div>
 
-      {/* REWARDS GRID - PRÊMIOS DISPONÍVEIS */}
+      {/* Melhora 4.1: Seção de Conquistas */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4 pl-1">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-yellow-500/10 text-lg shadow-inner">🏆</span>
+          <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Minhas Conquistas</h3>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          {badges.map((b) => {
+            const isDone = b.current >= b.goal;
+            return (
+              <div key={b.id} className={`shrink-0 flex flex-col items-center gap-2 p-4 rounded-2xl border w-32 transition-all ${isDone ? (theme === "dark" ? "bg-yellow-500/10 border-yellow-500/30 text-yellow-500" : "bg-yellow-50 border-yellow-200 text-yellow-600") : "opacity-40 grayscale"}`}>
+                <div className={`p-3 rounded-full ${isDone ? "bg-yellow-500/20" : "bg-zinc-500/10"}`}>{b.icon}</div>
+                <div className="text-center">
+                  <p className="text-[10px] font-black uppercase tracking-tighter">{b.name}</p>
+                  <p className="text-[8px] font-bold opacity-60 mt-0.5">{b.current}/{b.goal}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div>
         <div className="flex items-center gap-2 mb-4 pl-1">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-lg shadow-inner">
-            🎁
-          </span>
-          <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${
-            theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"
-          }`}>
-            Prêmios Disponíveis
-          </h3>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-lg shadow-inner">🎁</span>
+          <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Prêmios Disponíveis</h3>
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           {rewards.map((r) => (
-            <div 
-              key={r.id} 
-              className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-4 shadow-xl transition-all duration-300 hover:shadow-2xl hover:border-emerald-500/30 ${
-                theme === "dark" 
-                  ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d]" 
-                  : "bg-white border-zinc-200 hover:bg-zinc-50 shadow-zinc-100"
-              }`}
-            >
+            <div key={r.id} onClick={() => tryRedeem(r)} className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-4 shadow-xl transition-all duration-300 hover:shadow-2xl hover:border-emerald-500/30 cursor-pointer ${theme === "dark" ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d]" : "bg-white border-zinc-200 hover:bg-zinc-50"}`}>
               <div className="mb-3 text-3xl drop-shadow-md">{r.emoji ?? "🎁"}</div>
-              <h4 className={`text-[13px] font-bold leading-tight mb-1 transition-colors group-hover:text-emerald-500 ${
-                theme === "dark" ? "text-white" : "text-zinc-900"
-              }`}>
-                {r.nome}
-              </h4>
-              <p className={`mb-4 text-[11px] line-clamp-2 h-8 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>
-                {r.descricao}
-              </p>
-              
-              <div className={`mt-auto border-t pt-3 ${theme === "dark" ? "border-white/5" : "border-zinc-100"}`}>
-                <div className="mb-3 flex flex-col">
-                  <span className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${
-                    theme === "dark" ? "text-muted-foreground/60" : "text-zinc-400"
-                  }`}>
-                    Custo
-                  </span>
-                  <span className={`text-lg font-black tracking-tight ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-                    {r.custo_pontos} <span className="text-[10px] opacity-70">pts</span>
-                  </span>
-                </div>
-                
-                <button
-                  onClick={() => tryRedeem(r)}
-                  className={`w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 border ${
-                    isPremium 
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] border-emerald-500" 
-                      : theme === "dark"
-                        ? "bg-white/5 text-muted-foreground border-white/10 hover:bg-white/10 hover:text-white"
-                        : "bg-zinc-50 text-zinc-500 border-zinc-200 hover:bg-zinc-100 hover:text-zinc-700"
-                  }`}
-                >
-                  {isPremium ? (
-                    "Resgatar"
-                  ) : (
-                    <>
-                      <Lock className="h-3 w-3" /> Exclusivo Premium
-                    </>
-                  )}
-                </button>
-              </div>
+              <h4 className="text-[13px] font-bold leading-tight mb-1">{r.nome}</h4>
+              <p className="mb-4 text-[11px] line-clamp-2 h-8 opacity-60">{r.descricao}</p>
+              <div className="mt-auto border-t border-white/5 pt-3"><div className="flex items-baseline gap-1"><span className="text-lg font-black text-emerald-500">{r.custo_pontos}</span><span className="text-[9px] font-bold uppercase opacity-40">pontos</span></div></div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* PREMIUM LOCK MODAL */}
       <Dialog open={showLock} onOpenChange={setShowLock}>
-        <DialogContent className={`max-w-sm rounded-[24px] border p-6 shadow-2xl ${
-          theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
-        }`}>
-          <DialogHeader className="text-center flex flex-col items-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-[0_0_20px_rgba(251,191,36,0.3)] text-white">
-              <Crown className="h-8 w-8" />
-            </div>
-            <DialogTitle className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-              Resgate Exclusivo
-            </DialogTitle>
-            <DialogDescription className={`text-sm mt-2 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>
-              Assine o abastece+ Premium e troque seus pontos por prêmios em postos parceiros.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-6 flex-col gap-3 sm:justify-start">
-            <Button 
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 font-bold text-white shadow-lg hover:brightness-110 border-0" 
-              onClick={subscribe}
-            >
-              Seja Premium Agora
-            </Button>
-            <Button 
-              variant="outline" 
-              className={`w-full h-12 rounded-xl bg-transparent transition-colors ${
-                theme === "dark" ? "border-white/10 text-white hover:bg-white/5" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-              }`} 
-              onClick={() => setShowLock(false)}
-            >
-              Voltar
-            </Button>
-          </DialogFooter>
+        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="text-center p-6">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500"><Crown className="h-8 w-8" /></div>
+            <DialogHeader><DialogTitle className="text-xl font-black">Área Exclusiva</DialogTitle><DialogDescription className="opacity-60">O resgate de prêmios está disponível apenas para membros do clube Abastece+ Pro.</DialogDescription></DialogHeader>
+            <Button onClick={() => { setShowLock(false); setSection("planos"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">CONHECER PLANOS</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* REDEEM SUCCESS MODAL */}
-      <Dialog open={!!redeemCode} onOpenChange={(o) => !o && setRedeemCode(null)}>
-        <DialogContent className={`max-w-sm rounded-[24px] border p-6 text-center shadow-2xl ${
-          theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
-        }`}>
-          <DialogHeader className="flex flex-col items-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <DialogTitle className={`text-xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-              Resgate Realizado!
-            </DialogTitle>
-            <DialogDescription className={`text-sm mt-2 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>
-              Apresente o QR Code ou o código abaixo no posto para retirar seu prêmio.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="my-6 flex flex-col items-center justify-center gap-4">
-            {redeemCode && (
-              <div className="rounded-2xl bg-white p-3 shadow-lg border border-zinc-200">
-                <QRCodeSVG value={redeemCode} size={160} />
-              </div>
-            )}
-            <span className={`rounded-xl border px-4 py-2 text-xl font-mono font-bold tracking-widest text-emerald-500 ${
-              theme === "dark" ? "bg-white/5 border-white/10" : "bg-emerald-50 border-emerald-500/20"
-            }`}>
-              {redeemCode}
-            </span>
+      <Dialog open={!!picked && !showLock && !redeemCode} onOpenChange={() => setPicked(null)}>
+        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="p-6 text-center">
+            <div className="text-4xl mb-4">{picked?.emoji}</div>
+            <DialogHeader><DialogTitle className="text-xl font-black">Confirmar Resgate?</DialogTitle><DialogDescription className="opacity-60">Você usará {picked?.custo_pontos} pontos para resgatar: {picked?.nome}</DialogDescription></DialogHeader>
+            <div className="mt-6 flex gap-3"><Button variant="outline" onClick={() => setPicked(null)} className="flex-1 rounded-xl">Cancelar</Button><Button onClick={confirmRedeem} className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white">Resgatar</Button></div>
           </div>
-          <DialogFooter>
-            <Button 
-              className={`w-full h-12 rounded-xl font-bold border-0 transition-colors ${
-                theme === "dark" ? "bg-white/10 text-white hover:bg-white/20" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-              }`} 
-              onClick={() => setPicked(null)}
-            >
-              Fechar
-            </Button>
-          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!redeemCode} onOpenChange={() => setRedeemCode(null)}>
+        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="p-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">🎉</div>
+            <DialogHeader><DialogTitle className="text-xl font-black">Resgate Realizado!</DialogTitle><DialogDescription className="opacity-60">Apresente o código abaixo no posto para retirar seu prêmio.</DialogDescription></DialogHeader>
+            <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"><span className="text-3xl font-black tracking-[0.2em] text-emerald-500">{redeemCode}</span></div>
+            <Button onClick={() => setRedeemCode(null)} className="mt-6 w-full rounded-xl bg-emerald-500 font-bold text-white">Entendido</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </section>
   );
 }
+
+export default Index;

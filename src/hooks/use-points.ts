@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type LedgerEntry = {
   id: string;
@@ -9,38 +10,36 @@ export type LedgerEntry = {
 };
 
 export function usePoints(userId: string | null) {
-  const [entries, setEntries] = useState<LedgerEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    if (!userId) {
-      setEntries([]);
-      return;
-    }
-    setLoading(true);
-    const { data } = await supabase
-      .from("points_ledger")
-      .select("id,delta,descricao,created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setEntries((data ?? []) as LedgerEntry[]);
-    setLoading(false);
-  }, [userId]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: entries = [], isLoading: loading, refetch: refresh } = useQuery({
+    queryKey: ["points", userId],
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from("points_ledger")
+        .select("id,delta,descricao,created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      
+      if (error) throw error;
+      return (data ?? []) as LedgerEntry[];
+    },
+    enabled: !!userId,
+  });
 
   const balance = entries.reduce((s, e) => s + e.delta, 0);
 
   const awardForAction = useCallback(
     async (action: "confirm_price") => {
       if (!userId) return;
-      await (supabase.rpc as any)("award_points_for_action", { _action: action });
-      await refresh();
+      const { error } = await (supabase.rpc as any)("award_points_for_action", { _action: action });
+      if (!error) {
+        queryClient.invalidateQueries({ queryKey: ["points", userId] });
+      }
     },
-    [userId, refresh]
+    [userId, queryClient]
   );
 
   return { entries, balance, loading, refresh, awardForAction };

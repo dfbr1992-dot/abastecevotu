@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 export type Reward = {
   id: string;
@@ -10,31 +10,39 @@ export type Reward = {
 };
 
 export function useRewards() {
-  const [rewards, setRewards] = useState<Reward[]>([]);
-  useEffect(() => {
-    supabase
-      .from("rewards")
-      .select("id,nome,descricao,custo_pontos,emoji")
-      .eq("ativo", true)
-      .order("custo_pontos")
-      .then(({ data }) => setRewards((data ?? []) as Reward[]));
-  }, []);
+  const { data: rewards = [] } = useQuery({
+    queryKey: ["rewards"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("rewards")
+        .select("id,nome,descricao,custo_pontos,emoji")
+        .eq("ativo", true)
+        .order("custo_pontos", { ascending: true });
+      
+      if (error) throw error;
+      return (data ?? []) as Reward[];
+    },
+  });
+
   return rewards;
 }
 
 export function usePremium(userId: string | null) {
-  const [isPremium, setIsPremium] = useState(false);
-  useEffect(() => {
-    if (!userId) {
-      setIsPremium(false);
-      return;
-    }
-    supabase
-      .from("profiles")
-      .select("is_premium")
-      .eq("id", userId)
-      .maybeSingle()
-      .then(({ data }) => setIsPremium(!!data?.is_premium));
-  }, [userId]);
-  return { isPremium, setIsPremium };
+  const { data: isPremium = false, refetch: refreshPremium } = useQuery({
+    queryKey: ["isPremium", userId],
+    queryFn: async () => {
+      if (!userId) return false;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", userId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return !!data?.is_premium;
+    },
+    enabled: !!userId,
+  });
+
+  return { isPremium, setIsPremium: refreshPremium };
 }
