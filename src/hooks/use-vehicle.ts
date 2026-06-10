@@ -9,6 +9,7 @@ export type Vehicle = {
   placa: string | null;
   licenciamento_vencimento: string | null;
   seguro_vencimento: string | null;
+  km_atual: number | null;
 };
 
 export function useVehicle(userId: string | null) {
@@ -23,7 +24,7 @@ export function useVehicle(userId: string | null) {
     setLoading(true);
     const { data } = await supabase
       .from("vehicles")
-      .select("id,marca,modelo,ano,placa,licenciamento_vencimento,seguro_vencimento")
+      .select("id,marca,modelo,ano,placa,licenciamento_vencimento,seguro_vencimento,km_atual")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1)

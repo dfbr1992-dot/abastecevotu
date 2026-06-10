@@ -44,5 +44,9 @@ export function usePremium(userId: string | null) {
     enabled: !!userId,
   });
 
-  return { isPremium, setIsPremium: refreshPremium };
+  const setIsPremium = (val: boolean) => {
+    refreshPremium();
+  };
+
+  return { isPremium, setIsPremium };
 }

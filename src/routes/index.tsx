@@ -60,6 +60,8 @@ import {
   Award,
   Trophy,
   ShieldCheck,
+  Bell,
+  X,
 } from "lucide-react";
 import {
   AreaChart,
@@ -85,7 +87,7 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-type Section = "home" | "postos" | "carro" | "servicos" | "plus" | "planos";
+type Section = "home" | "postos" | "carro" | "servicos" | "premios";
 type Fuel = "etanol" | "gasolina" | "diesel";
 type SortBy = "price" | "distance";
 
@@ -153,8 +155,13 @@ function Index() {
   const userId = user?.id ?? null;
   const [section, setSection] = useState<Section>("home");
   const [toast, setToast] = useState<string | null>(null);
-  const [defaultFuel, setDefaultFuel] = useLocalStorage<Fuel>("abastece_default_fuel", "etanol");
+    const [defaultFuel, setDefaultFuel] = useLocalStorage<Fuel>("abastece_default_fuel", "etanol");
   const [fuel, setFuel] = useState<Fuel>(defaultFuel);
+  
+  // Sincronizar fuel quando defaultFuel mudar no Dropdown
+  useEffect(() => {
+    setFuel(defaultFuel);
+  }, [defaultFuel]);
   const [sortBy, setSortBy] = useState<SortBy>("price");
   const [confirmed, setConfirmed] = useLocalStorage<string[]>("abastece_confirmed_today", []);
   const [disliked, setDisliked] = useLocalStorage<string[]>("abastece_disliked_today", []);
@@ -163,14 +170,67 @@ function Index() {
 
   const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  const handleAbasteceMaisClick = () => {
-    if (isPremium) {
-      setSection("plus"); 
-    } else {
-      setSection("planos"); 
+    const { vehicle } = useVehicle(userId);
+
+  // Preparar notificações do sino
+  const notifications = useMemo(() => {
+    const notifs: Array<{ id: string; type: 'points' | 'vehicle' | 'promotion'; title: string; description: string; icon: string; timestamp: string }> = [];
+    
+    // 1. Promoções (Simuladas a partir do AdCarousel)
+    notifs.push({
+      id: 'promo-1',
+      type: 'promotion',
+      title: 'Troca de óleo com 20% OFF',
+      description: 'Agende pelo app — vagas limitadas',
+      icon: '🛢️',
+      timestamp: 'Hoje',
+    });
+    
+    // 2. Dados do Veículo (Lembretes)
+    if (vehicle) {
+      const daysLicensing = daysUntil(vehicle.licenciamento_vencimento);
+      if (daysLicensing !== null && daysLicensing <= 30) {
+        notifs.push({
+          id: 'vehicle-licensing',
+          type: 'vehicle',
+          title: 'Licenciamento Próximo',
+          description: `Seu licenciamento vence em ${daysLicensing} dias.`,
+          icon: '🚗',
+          timestamp: 'Urgente',
+        });
+      }
+      
+      const daysInsurance = daysUntil(vehicle.seguro_vencimento);
+      if (daysInsurance !== null && daysInsurance <= 15) {
+        notifs.push({
+          id: 'vehicle-insurance',
+          type: 'vehicle',
+          title: 'Seguro Vencendo',
+          description: `O seguro do seu ${vehicle.modelo} vence em breve.`,
+          icon: '🛡️',
+          timestamp: 'Atenção',
+        });
+      }
     }
-  };
+    
+    // 3. Últimas transações de pontos
+    if (entries.length > 0) {
+      entries.slice(0, 3).forEach((e) => {
+        notifs.push({
+          id: e.id,
+          type: 'points',
+          title: e.delta > 0 ? 'Pontos Ganhos' : 'Pontos Gastos',
+          description: e.descricao,
+          icon: e.delta > 0 ? '📈' : '📉',
+          timestamp: new Date(e.created_at).toLocaleDateString('pt-BR'),
+        });
+      });
+    }
+    
+    return notifs;
+  }, [entries, vehicle]);
 
   useEffect(() => {
     if (!loading && !authLoading) {
@@ -276,70 +336,205 @@ function Index() {
           </div>
           {user ? (
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleAbasteceMaisClick}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition-all ${
-                  isPremium 
-                    ? "border-yellow-500/30 bg-yellow-500/10 hover:bg-yellow-500/20" 
-                    : "border-white/10 bg-white/5 hover:bg-white/10"
-                }`}
-              >
-                <Crown className={`h-3.5 w-3.5 ${isPremium ? "text-yellow-500" : "text-zinc-400"}`} />
-                <span className={`text-[11px] font-bold uppercase tracking-wider ${isPremium ? "text-yellow-500" : "text-zinc-400"}`}>
-                  abastece+
-                </span>
-              </button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className={`flex items-center gap-2 rounded-full border px-1 py-1 pr-3 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-white/5" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80"}`}>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-500">
-                      {displayName ? displayName.charAt(0).toUpperCase() : "U"}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className={`flex items-center justify-center h-9 w-9 rounded-full border transition-all ${
+                    showNotifications
+                      ? theme === "dark" ? "border-emerald-500/30 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50"
+                      : theme === "dark" ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100"
+                  }`}
+                  title="Notificações"
+                >
+                  <Bell className={`h-4 w-4 ${showNotifications ? "text-emerald-500" : theme === "dark" ? "text-zinc-400" : "text-zinc-600"}`} />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      {notifications.length > 9 ? '9+' : notifications.length}
                     </span>
-                    <span className={`max-w-[100px] truncate text-[12px] font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-                      {displayName?.split(" ")[0] || "Perfil"}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className={`w-54 rounded-[20px] shadow-xl p-2 border ${theme === "dark" ? "bg-[#161618] border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900"}`}>
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 opacity-50">Minha Conta</DropdownMenuLabel>
-                  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
-                  <DropdownMenuItem onClick={() => navigate({ to: "/meus-dados" })} className="flex items-center gap-2 rounded-xl cursor-pointer p-2">
-                    <User className="h-4 w-4 opacity-50" />
-                    <span className="text-sm font-medium">Meus Dados</span>
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem className="flex items-center justify-between rounded-xl cursor-pointer p-2" onClick={(e) => e.preventDefault()}>
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 opacity-50" />
-                      <span className="text-sm font-medium">Combustível Padrão</span>
+                  )}
+                </button>
+                
+                {showNotifications && (
+                  <div className={`absolute right-0 top-full mt-2 w-80 rounded-2xl border shadow-2xl z-50 max-h-96 overflow-y-auto ${
+                    theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
+                  }`}>
+                    <div className={`sticky top-0 flex items-center justify-between border-b p-4 ${theme === "dark" ? "border-white/10 bg-[#121214]" : "border-zinc-100 bg-zinc-50"}`}>
+                      <h3 className="text-sm font-bold">Notificações</h3>
+                      <button onClick={() => setShowNotifications(false)} className="text-muted-foreground hover:text-foreground">
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                    <select 
-                      value={defaultFuel} 
-                      onChange={(e) => setDefaultFuel(e.target.value as Fuel)}
-                      className={`text-[10px] font-bold uppercase bg-transparent border-none focus:ring-0 ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}
-                    >
-                      <option value="etanol">Etanol</option>
-                      <option value="gasolina">Gasolina</option>
-                      <option value="diesel">Diesel</option>
-                    </select>
-                  </DropdownMenuItem>
+                    
+                    {notifications.length > 0 ? (
+                      <div className="divide-y divide-white/5">
+                        {notifications.map((notif) => (
+                          <div key={notif.id} className={`p-4 hover:bg-white/5 transition-colors cursor-pointer ${theme === "dark" ? "" : "hover:bg-zinc-50"}`}>
+                            <div className="flex gap-3">
+                              <span className="text-lg">{notif.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold">{notif.title}</p>
+                                <p className="text-xs opacity-60 line-clamp-2">{notif.description}</p>
+                                <p className="text-[10px] opacity-40 mt-1">{notif.timestamp}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center">
+                        <p className="text-sm opacity-60">Nenhuma notificação no momento</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <button className={`flex items-center gap-2 rounded-full border px-1 py-1 pr-3 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-white/5" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80"}`}>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-500">
+        {displayName ? displayName.charAt(0).toUpperCase() : "U"}
+      </span>
+      <span className={`max-w-[100px] truncate text-[12px] font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+        {displayName?.split(" ")[0] || "Perfil"}
+      </span>
+    </button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end" className={`w-72 rounded-[20px] shadow-xl p-0 border overflow-hidden ${theme === "dark" ? "bg-[#0b0f19] border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900"}`}>
+    
+    {/* CARD DE PERFIL COM RESUMO */}
+    <div className={`p-4 border-b ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"}`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold ${theme === "dark" ? "bg-emerald-500/20 text-emerald-500" : "bg-emerald-100 text-emerald-600"}`}>
+          {displayName ? displayName.charAt(0).toUpperCase() : "U"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className={`text-sm font-bold truncate ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+            {displayName || "Usuário Abastece"}
+          </h3>
+          <p className={`text-xs truncate opacity-60 ${theme === "dark" ? "text-zinc-400" : "text-zinc-600"}`}>
+            {user?.email}
+          </p>
+        </div>
+        {isPremium && (
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500/20 text-yellow-500 text-xs font-bold" title="Premium">
+            👑
+          </div>
+        )}
+      </div>
+      
+      {/* STATUS DO USUÁRIO */}
+      <div className="flex gap-2">
+        <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border flex-1 text-center ${
+          isPremium 
+            ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-500" 
+            : theme === "dark" 
+              ? "bg-white/5 border-white/5 text-zinc-400" 
+              : "bg-zinc-100 border-zinc-200 text-zinc-600"
+        }`}>
+          {isPremium ? "Premium" : "Comum"}
+        </span>
+        {balance > 0 && (
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border flex-1 text-center ${
+            theme === "dark" 
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+              : "bg-emerald-100 border-emerald-200 text-emerald-600"
+          }`}>
+            {balance} pts
+          </span>
+        )}
+      </div>
+    </div>
 
-                  <DropdownMenuItem onClick={(e) => { e.preventDefault(); toggleTheme(); }} className="flex items-center justify-between rounded-xl cursor-pointer p-2">
-                    <div className="flex items-center gap-2">
-                      {theme === "dark" ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-indigo-500" />}
-                      <span className="text-sm font-medium">Aparência</span>
-                    </div>
-                    <div className={`w-8 h-4.5 rounded-full p-0.5 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md" />
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-1" : "bg-zinc-100 my-1"} />
-                  <DropdownMenuItem onClick={async () => { await signOut(); fireToast("Você saiu da conta"); }} className="flex items-center gap-2 rounded-xl cursor-pointer p-2 text-red-500">
-                    <LogOut className="h-4 w-4" />
-                    <span className="text-sm font-bold">Sair da Conta</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+        {/* MENU ITEMS */}
+    <div className="p-2">
+      <DropdownMenuLabel className="text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 opacity-50">Conta</DropdownMenuLabel>
+      
+      {/* Meus Dados */}
+      <DropdownMenuItem onClick={() => navigate({ to: "/meus-dados" })} className={`flex items-center gap-3 rounded-xl cursor-pointer p-3 transition-colors ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-zinc-100"}`}>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme === "dark" ? "bg-blue-500/10" : "bg-blue-100"}`}>
+          <User className={`h-4 w-4 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold">Meus Dados</p>
+          <p className="text-[10px] opacity-60">Editar perfil e informações</p>
+        </div>
+        <ChevronRight className="h-3.5 w-3.5 opacity-40" />
+      </DropdownMenuItem>
+
+      {/* Combustível Padrão */}
+      <DropdownMenuItem className={`flex items-center justify-between rounded-xl cursor-pointer p-3 transition-colors ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-zinc-100"}`} onClick={(e) => e.preventDefault()}>
+        <div className="flex items-center gap-3 flex-1">
+          <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme === "dark" ? "bg-green-500/10" : "bg-green-100"}`}>
+            <TrendingUp className={`h-4 w-4 ${theme === "dark" ? "text-green-400" : "text-green-600"}`} />
+          </div>
+          <div>
+            <p className="text-sm font-bold">Combustível</p>
+            <p className="text-[10px] opacity-60">Padrão: {defaultFuel}</p>
+          </div>
+        </div>
+        <select 
+          value={defaultFuel} 
+          onChange={(e) => {
+            setDefaultFuel(e.target.value as Fuel);
+          }}
+          className={`text-[11px] font-black uppercase bg-transparent border-none focus:ring-0 cursor-pointer appearance-none px-2 py-1 rounded-lg ${theme === "dark" ? "text-emerald-400 bg-white/5" : "text-emerald-600 bg-zinc-100"}`}
+        >
+          <option value="etanol">Etanol</option>
+          <option value="gasolina">Gasolina</option>
+          <option value="diesel">Diesel</option>
+        </select>
+      </DropdownMenuItem>
+
+      {/* Meu Carro */}
+      {vehicle && (
+        <DropdownMenuItem onClick={() => navigate({ to: "/meus-dados" })} className={`flex items-center gap-3 rounded-xl cursor-pointer p-3 transition-colors ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-zinc-100"}`}>
+          <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme === "dark" ? "bg-purple-500/10" : "bg-purple-100"}`}>
+            <Car className={`h-4 w-4 ${theme === "dark" ? "text-purple-400" : "text-purple-600"}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold">{vehicle.modelo}</p>
+            <p className="text-[10px] opacity-60">{vehicle.placa || "Placa não registrada"}</p>
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 opacity-40" />
+        </DropdownMenuItem>
+      )}
+
+      <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-2" : "bg-zinc-100 my-2"} />
+      <DropdownMenuLabel className="text-[10px] uppercase tracking-widest font-bold px-2 py-1.5 opacity-50">Preferências</DropdownMenuLabel>
+
+      {/* Aparência */}
+      <DropdownMenuItem onClick={(e) => { e.preventDefault(); toggleTheme(); }} className={`flex items-center justify-between rounded-xl cursor-pointer p-3 transition-colors ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-zinc-100"}`}>
+        <div className="flex items-center gap-3 flex-1">
+          <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme === "dark" ? "bg-yellow-500/10" : "bg-yellow-100"}`}>
+            {theme === "dark" ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-indigo-500" />}
+          </div>
+          <div>
+            <p className="text-sm font-bold">Aparência</p>
+            <p className="text-[10px] opacity-60">{theme === "dark" ? "Escuro" : "Claro"}</p>
+          </div>
+        </div>
+        <div className={`w-8 h-4.5 rounded-full p-0.5 flex items-center ${theme === "dark" ? "bg-purple-600 justify-end" : "bg-zinc-300 justify-start"}`}>
+          <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md" />
+        </div>
+      </DropdownMenuItem>
+
+      <DropdownMenuSeparator className={theme === "dark" ? "bg-white/10 my-2" : "bg-zinc-100 my-2"} />
+
+      {/* Sair da Conta */}
+      <DropdownMenuItem onClick={async () => { await signOut(); fireToast("Você saiu da conta"); }} className={`flex items-center gap-3 rounded-xl cursor-pointer p-3 transition-colors ${theme === "dark" ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50"}`}>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme === "dark" ? "bg-red-500/10" : "bg-red-100"}`}>
+          <LogOut className="h-4 w-4" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-bold">Sair da Conta</p>
+          <p className="text-[10px] opacity-60">Desconectar</p>
+        </div>
+      </DropdownMenuItem>
+    </div>
+  </DropdownMenuContent>
+</DropdownMenu>
+
             </div>
           ) : (
             <button onClick={() => navigate({ to: "/login", search: { redirect: "/" } })} className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:opacity-90">
@@ -384,8 +579,8 @@ function Index() {
             <ServicosSection dadosServicos={dadosServicos} loading={loadingServicos} theme={theme} />
           )}
 
-          {section === "plus" && (
-            <PlusSection 
+          {section === "premios" && (
+            <PremiosSection 
               userId={userId} 
               balance={balance} 
               entries={entries} 
@@ -397,10 +592,6 @@ function Index() {
               theme={theme} 
               confirmedCount={confirmed.length}
             />
-          )}
-
-          {section === "planos" && (
-            <PlanosSection userId={userId} setIsPremium={setIsPremium} fireToast={fireToast} theme={theme} />
           )}
         </div>
 
@@ -423,11 +614,8 @@ function Index() {
                 </div>
               } 
               label="Prêmios" 
-              active={section === "plus" || section === "planos"} 
-              onClick={() => {
-                if (isPremium) goTo("plus");
-                else setSection("planos");
-              }} 
+              active={section === "premios"} 
+              onClick={() => goTo("premios")} 
               theme={theme}
             />
           </AccessControl>
@@ -1068,22 +1256,206 @@ function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: str
         <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
         <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
       </div>
-      <div className="space-y-4">
-        {[{ icon: "🎁", title: "Resgate de Prêmios", desc: "Troque seus pontos por lavagens, combustíveis e mimos." }, { icon: "⚡", title: "Pontos em Dobro", desc: "Ganhe 2x mais pontos em cada validação de preço." }, { icon: "📊", title: "Histórico Detalhado", desc: "Acompanhe cada ponto ganho e gasto em tempo real." }, { icon: "🛡️", title: "Suporte Prioritário", desc: "Atendimento exclusivo via WhatsApp." }].map((feat, i) => (
-          <div key={i} className={`flex items-start gap-4 rounded-2xl border p-4 ${theme === "dark" ? "bg-white/5 border-white/10" : "bg-white border-zinc-100 shadow-sm"}`}>
-            <span className="text-2xl">{feat.icon}</span>
-            <div><h4 className="text-sm font-bold">{feat.title}</h4><p className="text-xs opacity-60">{feat.desc}</p></div>
+
+      {/* Comparação de Planos */}
+      <div className="space-y-4 mt-8">
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Escolha seu Plano</h3>
+        
+        {/* Plano Comunidade (Grátis) */}
+        <div className={`rounded-[22px] border p-6 space-y-4 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+          <div>
+            <h4 className="text-lg font-bold">Comunidade</h4>
+            <p className={`text-[11px] font-semibold opacity-60 mt-1`}>Para quem quer apenas consultar os preços da cidade.</p>
           </div>
-        ))}
-      </div>
-      <div className={`rounded-3xl p-6 text-center space-y-4 ${theme === "dark" ? "bg-emerald-900/40" : "bg-zinc-900 text-white"}`}>
-        <div><span className="text-xs font-bold uppercase tracking-widest opacity-70">Plano Mensal</span><div className="flex items-baseline justify-center gap-1 mt-1"><span className="text-lg font-bold">R$</span><span className="text-4xl font-black">9,90</span><span className="text-sm opacity-70">/mês</span></div></div>
-        <Button onClick={subscribe} className="w-full h-12 bg-white text-zinc-900 hover:bg-zinc-100 font-black rounded-xl">ASSINAR AGORA</Button>
-        <p className="text-[10px] opacity-50">Cancele quando quiser. Sem fidelidade.</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-emerald-500">R$ 0</span>
+            <span className="text-xs opacity-60">/sempre</span>
+          </div>
+          <ul className="space-y-2.5">
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Lista de postos atualizada</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Mapa interativo de Votuporanga</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Histórico básico de preços</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+              <span className="text-red-500 font-bold">×</span>
+              <span>Resgate de Prêmios</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+              <span className="text-red-500 font-bold">×</span>
+              <span>Sem Anúncios no App</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+              <span className="text-red-500 font-bold">×</span>
+              <span>Alertas em Tempo Real</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Plano Abastece+ Pro */}
+        <div className={`rounded-[22px] border-2 border-yellow-500/30 p-6 space-y-4 relative overflow-hidden ${theme === "dark" ? "bg-yellow-500/5" : "bg-yellow-50"}`}>
+          <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-amber-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase">Mais Assinado</div>
+          <div>
+            <h4 className="text-lg font-bold">Abastece+ Pro</h4>
+            <p className={`text-[11px] font-semibold opacity-60 mt-1`}>A experiência definitiva com máxima economia e benefícios exclusivos.</p>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold">R$</span>
+            <span className="text-4xl font-black text-yellow-500">9,90</span>
+            <span className="text-xs opacity-60">/mês</span>
+          </div>
+          <ul className="space-y-2.5">
+            <li className="flex items-center gap-2 text-[12px] font-bold">
+              <span className="text-emerald-500">✓</span>
+              <span>Resgate de Prêmios Exclusivos</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] font-bold">
+              <span className="text-emerald-500">✓</span>
+              <span>Navegação Sem Anúncios</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Alertas em tempo real quando o preço cair</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Cashback e vantagens em postos parceiros</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Gráficos de tendência e previsão de preços</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Suporte prioritário 24/7</span>
+            </li>
+          </ul>
+          <Button onClick={subscribe} className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-zinc-900 font-black rounded-xl mt-4">ASSINAR E ATIVAR NO APP</Button>
+          <p className="text-[10px] opacity-50 text-center">Cancele quando quiser. Sem fidelidade.</p>
+        </div>
       </div>
     </section>
   );
 }
+
+
+function PremiosSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number }) {
+  // Se for assinante, mostrar a seção de prêmios completa
+  if (isPremium) {
+    return <PlusSection userId={userId} balance={balance} entries={entries} isPremium={isPremium} setIsPremium={setIsPremium} refreshPoints={refreshPoints} requireAuth={requireAuth} fireToast={fireToast} theme={theme} confirmedCount={confirmedCount} />;
+  }
+
+  // Se não for assinante, mostrar os benefícios do Abastece+
+  const subscribe = async () => {
+    if (!userId) return;
+    const { error } = await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
+    if (error) return fireToast("Erro ao assinar");
+    setIsPremium(true); fireToast("Bem-vindo ao abastece+ Premium!");
+  };
+
+  return (
+    <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
+      <div className="text-center space-y-2">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-xl text-white"><Crown className="h-10 w-10" /></div>
+        <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
+        <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
+      </div>
+
+      {/* Comparação de Planos */}
+      <div className="space-y-4 mt-8">
+        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Escolha seu Plano</h3>
+        
+        {/* Plano Comunidade (Grátis) */}
+        <div className={`rounded-[22px] border p-6 space-y-4 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+          <div>
+            <h4 className="text-lg font-bold">Comunidade</h4>
+            <p className={`text-[11px] font-semibold opacity-60 mt-1`}>Para quem quer apenas consultar os preços da cidade.</p>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-emerald-500">R$ 0</span>
+            <span className="text-xs opacity-60">/sempre</span>
+          </div>
+          <ul className="space-y-2.5">
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Lista de postos atualizada</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Mapa interativo de Votuporanga</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500 font-bold">✓</span>
+              <span>Histórico básico de preços</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+              <span className="text-red-500 font-bold">×</span>
+              <span>Resgate de Prêmios</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+              <span className="text-red-500 font-bold">×</span>
+              <span>Sem Anúncios no App</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+              <span className="text-red-500 font-bold">×</span>
+              <span>Alertas em Tempo Real</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Plano Abastece+ Pro */}
+        <div className={`rounded-[22px] border-2 border-yellow-500/30 p-6 space-y-4 relative overflow-hidden ${theme === "dark" ? "bg-yellow-500/5" : "bg-yellow-50"}`}>
+          <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-amber-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase">Mais Assinado</div>
+          <div>
+            <h4 className="text-lg font-bold">Abastece+ Pro</h4>
+            <p className={`text-[11px] font-semibold opacity-60 mt-1`}>A experiência definitiva com máxima economia e benefícios exclusivos.</p>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold">R$</span>
+            <span className="text-4xl font-black text-yellow-500">9,90</span>
+            <span className="text-xs opacity-60">/mês</span>
+          </div>
+          <ul className="space-y-2.5">
+            <li className="flex items-center gap-2 text-[12px] font-bold">
+              <span className="text-emerald-500">✓</span>
+              <span>Resgate de Prêmios Exclusivos</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px] font-bold">
+              <span className="text-emerald-500">✓</span>
+              <span>Navegação Sem Anúncios</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Alertas em tempo real quando o preço cair</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Cashback e vantagens em postos parceiros</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Gráficos de tendência e previsão de preços</span>
+            </li>
+            <li className="flex items-center gap-2 text-[12px]">
+              <span className="text-emerald-500">✓</span>
+              <span>Suporte prioritário 24/7</span>
+            </li>
+          </ul>
+          <Button onClick={subscribe} className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-zinc-900 font-black rounded-xl mt-4">ASSINAR E ATIVAR NO APP</Button>
+          <p className="text-[10px] opacity-50 text-center">Cancele quando quiser. Sem fidelidade.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 
 function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number }) {
   const rewards = useRewards();
@@ -1176,7 +1548,7 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
           <div className="text-center p-6">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500"><Crown className="h-8 w-8" /></div>
             <DialogHeader><DialogTitle className="text-xl font-black">Área Exclusiva</DialogTitle><DialogDescription className="opacity-60">O resgate de prêmios está disponível apenas para membros do clube Abastece+ Pro.</DialogDescription></DialogHeader>
-            <Button onClick={() => { setShowLock(false); setSection("planos"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">CONHECER PLANOS</Button>
+            <Button onClick={() => { setShowLock(false); setSection("premios"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">CONHECER PLANOS</Button>
           </div>
         </DialogContent>
       </Dialog>
