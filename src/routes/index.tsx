@@ -179,14 +179,16 @@ function Index() {
     const notifs: Array<{ id: string; type: 'points' | 'vehicle' | 'promotion'; title: string; description: string; icon: string; timestamp: string }> = [];
     
     // 1. Promoções (Simuladas a partir do AdCarousel)
-    notifs.push({
-      id: 'promo-1',
-      type: 'promotion',
-      title: 'Troca de óleo com 20% OFF',
-      description: 'Agende pelo app — vagas limitadas',
-      icon: '🛢️',
-      timestamp: 'Hoje',
-    });
+    if (!isPremium) {
+      notifs.push({
+        id: 'promo-1',
+        type: 'promotion',
+        title: 'Troca de óleo com 20% OFF',
+        description: 'Agende pelo app — vagas limitadas',
+        icon: '🗲️',
+        timestamp: 'Hoje',
+      });
+    }
     
     // 2. Dados do Veículo (Lembretes)
     if (vehicle) {
@@ -576,7 +578,7 @@ function Index() {
           )}
 
           {section === "servicos" && (
-            <ServicosSection dadosServicos={dadosServicos} loading={loadingServicos} theme={theme} />
+            <ServicosSection dadosServicos={dadosServicos} loading={loadingServicos} theme={theme} isPremium={isPremium} />
           )}
 
           {section === "premios" && (
@@ -652,22 +654,14 @@ function HomeSection({
 }) {
   return (
     <>
-      <section className="mt-1 mb-4 flex flex-col gap-3 rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-900 p-4 text-white shadow-lg shadow-emerald-900/20">
-        <div className="w-full overflow-hidden rounded-2xl border border-white/10 shadow-sm">
+      {!isPremium && (
+        <section className="mt-1 mb-4 w-full overflow-hidden rounded-2xl border border-white/10 shadow-sm">
           <AdCarousel onAdClick={() => fireToast("Anúncio clicado!")} />
-        </div>
-        <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/20 px-4 py-3 backdrop-blur">
-          <span className="text-xl">⛽</span>
-          <div>
-            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">{fuel} mais barato</span>
-            <strong className="text-sm font-extrabold">
-              {cheapest?.name || "Buscando..."} {cheapest ? `— R$ ${cheapest.prices[fuel].toFixed(2).replace('.', ',')}` : ""}
-            </strong>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <PostosSection
+        cheapest={cheapest}
         sortedPostos={sortedPostos}
         fuel={fuel}
         setFuel={setFuel}
@@ -681,11 +675,9 @@ function HomeSection({
         onToggleFavorite={onToggleFavorite}
         theme={theme}
         isPremium={isPremium}
+        showAds={!isPremium}
       />
 
-      <div className="mt-4">
-        <AdCarousel onAdClick={() => fireToast("Quer anunciar aqui? Fale conosco!")} />
-      </div>
     </>
   );
 }
@@ -757,13 +749,14 @@ function PriceChart({ data, theme }: { data: any[]; theme: string }) {
 }
 
 function PostosSection({
-  sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, disliked, favorites, onConfirm, onDislike, onToggleFavorite, theme, isPremium
+  cheapest, sortedPostos, fuel, setFuel, sortBy, setSortBy, confirmed, disliked, favorites, onConfirm, onDislike, onToggleFavorite, theme, isPremium, showAds
 }: {
+  cheapest: Posto | null;
   sortedPostos: Posto[];
   fuel: Fuel; setFuel: (f: Fuel) => void;
   sortBy: SortBy; setSortBy: (s: SortBy) => void;
   confirmed: string[]; disliked: string[]; favorites: string[]; onConfirm: (name: string) => void; onDislike: (name: string) => void; onToggleFavorite: (name: string) => void;
-  theme: string; isPremium: boolean;
+  theme: string; isPremium: boolean; showAds: boolean;
 }) {
   const [convPosto, setConvPosto] = useState<Posto | null>(null);
   const [showChart, setShowChart] = useState<string | null>(null);
@@ -824,6 +817,16 @@ function PostosSection({
           >
             Mais Próximo
           </button>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/5 px-4 py-3 backdrop-blur">
+          <span className="text-xl">⛽</span>
+          <div>
+            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80">{fuel} mais barato</span>
+            <strong className={`text-sm font-extrabold ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
+              {cheapest?.name || "Buscando..."} {cheapest ? `— R$ ${cheapest.prices[fuel].toFixed(2).replace('.', ',')}` : ""}
+            </strong>
+          </div>
         </div>
       </div>
 
@@ -966,7 +969,7 @@ function PostosSection({
   );
 }
 
-function ServicosSection({ dadosServicos, loading, theme }: { dadosServicos: Servico[]; loading: boolean; theme: string }) {
+function ServicosSection({ dadosServicos, loading, theme, isPremium }: { dadosServicos: Servico[]; loading: boolean; theme: string; isPremium: boolean }) {
   const agendarViaWhatsApp = (servico: Servico) => {
     const numero = servico.whatsapp || "5517900000000"; 
     const texto = `Olá! Vi o serviço de *${servico.name}* no App Abastece Votu e gostaria de agendar.`;
@@ -983,6 +986,12 @@ function ServicosSection({ dadosServicos, loading, theme }: { dadosServicos: Ser
 
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
+      {!isPremium && (
+        <div className="w-full overflow-hidden rounded-2xl border border-white/10 shadow-sm mb-4">
+          <AdCarousel onAdClick={() => {}} />
+        </div>
+      )}
+      
       <div className="flex items-center gap-2 mb-5 pl-1">
         <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>🛠️</span>
         <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Serviços em Votuporanga</h3>
@@ -1077,6 +1086,12 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user
 
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 space-y-4 pt-2">
+      {!isPremium && (
+        <div className="w-full overflow-hidden rounded-2xl border border-white/10 shadow-sm mb-4">
+          <AdCarousel onAdClick={() => {}} />
+        </div>
+      )}
+      
       <div className="flex items-center gap-2 mb-4">
         <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>🚗</span>
         <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Garagem</h3>
