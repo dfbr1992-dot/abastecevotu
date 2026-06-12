@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { InstallButton } from "@/components/InstallButton";
 import logoBranca from "@/abastece.png";
 import logoPreta from "@/abastece2.png";
+import logoAbasteceVotu from "@/assets/logo-abastece-votu.gif";
 import { AdCarousel } from "@/components/AdCarousel";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useAuth } from "@/hooks/use-auth";
@@ -167,6 +168,7 @@ function Index() {
   const [disliked, setDisliked] = useLocalStorage<string[]>("abastece_disliked_today", []);
   const [favorites, setFavorites] = useLocalStorage<string[]>("abastece_favorites", []);
   const [showSplash, setShowSplash] = useState(true);
+  const [loadingText, setLoadingText] = useState("Carregando...");
 
   const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
@@ -235,10 +237,27 @@ function Index() {
   }, [entries, vehicle]);
 
   useEffect(() => {
+    if (showSplash) {
+      const texts = [
+        "Consultando menor preço...",
+        "Procurando posto mais próximo...",
+        "Verificando promoções...",
+        "Sincronizando seus pontos..."
+      ];
+      let i = 0;
+      const interval = setInterval(() => {
+        i = (i + 1) % texts.length;
+        setLoadingText(texts[i]);
+      }, 800);
+      return () => clearInterval(interval);
+    }
+  }, [showSplash]);
+
+  useEffect(() => {
     if (!loading && !authLoading) {
       const timer = setTimeout(() => {
         setShowSplash(false);
-      }, 1500);
+      }, 3000); // Aumentado um pouco para dar tempo de ver as frases
       return () => clearTimeout(timer);
     }
   }, [loading, authLoading]);
@@ -269,12 +288,15 @@ function Index() {
         <div className="relative z-10 flex flex-col items-center gap-4 text-center">
           <div className="relative p-4">
            <img 
-              src={logoBranca} 
+              src={logoAbasteceVotu} 
               alt="Abastece Votu Logo" 
-              className="h-20 w-auto object-contain select-none"
+              className="h-32 w-auto object-contain select-none"
             />
           </div>
-          <Loader2 className="mt-4 h-5 w-5 animate-spin text-primary/70" />
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary/70" />
+            <p className="text-sm font-medium text-white/60 animate-pulse">{loadingText}</p>
+          </div>
         </div>
       </div>
     );
