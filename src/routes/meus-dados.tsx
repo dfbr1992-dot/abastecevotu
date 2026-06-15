@@ -48,7 +48,7 @@ export function MeusDadosPage({ theme }: { theme: string }) {
 
         if (data) {
           setNome(data.full_name || "");
-          setTelefone(data.phone || "");
+          setTelefone(data.whatsapp || "");
           setEmail(user.email || "");
           setCidade(data.city || "Votuporanga");
           setEstado(data.state || "SP");
@@ -74,16 +74,16 @@ export function MeusDadosPage({ theme }: { theme: string }) {
       setSaving(true);
       console.log("Salvando dados para o usuário:", user.id);
       
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: nome,
-          phone: telefone,
-          city: cidade,
-          state: estado,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
+	      const { error } = await supabase
+	        .from("profiles")
+	        .update({
+	          full_name: nome,
+	          whatsapp: telefone,
+	          city: cidade,
+	          state: estado,
+	          updated_at: new Date().toISOString(),
+	        })
+	        .eq("id", user.id);
 
       if (error) {
         console.error("Erro do Supabase ao salvar:", error);
@@ -343,24 +343,23 @@ export function MeusDadosPage({ theme }: { theme: string }) {
               <input
                 type="text"
                 value={cidade}
-                onChange={(e) => setCidade(e.target.value)}
-                className={`w-full rounded-xl border pl-10 pr-4 py-2.5 text-sm font-medium transition-all ${
-                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
-                }`}
-                disabled
-              />
+	                onChange={(e) => setCidade(e.target.value)}
+	                className={`w-full rounded-xl border pl-10 pr-4 py-2.5 text-sm font-medium transition-all ${
+	                  theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
+	                }`}
+	              />
             </div>
           </div>
           <div className="space-y-1.5">
             <label className={`text-xs font-bold ${theme === "dark" ? "text-zinc-400" : "text-zinc-600"}`}>UF</label>
-            <input
-              type="text"
-              value={estado}
-              className={`w-full rounded-xl border px-4 py-2.5 text-sm text-center font-medium transition-all ${
-                theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
-              }`}
-              disabled
-            />
+	            <input
+	              type="text"
+	              value={estado}
+	              onChange={(e) => setEstado(e.target.value.toUpperCase().slice(0, 2))}
+	              className={`w-full rounded-xl border px-4 py-2.5 text-sm text-center font-bold transition-all ${
+	                theme === "dark" ? "bg-white/5 border-white/10 text-white" : "bg-zinc-50 border-zinc-200 text-zinc-900"
+	              }`}
+	            />
           </div>
         </div>
 

@@ -173,6 +173,7 @@ function Index() {
   const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [clearedNotifications, setClearedNotifications] = useLocalStorage<string[]>("abastece_cleared_notifications", []);
 
     const { vehicle } = useVehicle(userId);
 
@@ -233,8 +234,8 @@ function Index() {
       });
     }
     
-    return notifs;
-  }, [entries, vehicle]);
+    return notifs.filter(n => !clearedNotifications.includes(n.id));
+  }, [entries, vehicle, clearedNotifications]);
 
   useEffect(() => {
     if (showSplash) {
@@ -378,39 +379,52 @@ function Index() {
                   )}
                 </button>
                 
-                {showNotifications && (
-                  <div className={`absolute right-0 top-full mt-2 w-80 rounded-2xl border shadow-2xl z-50 max-h-96 overflow-y-auto ${
-                    theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
-                  }`}>
-                    <div className={`sticky top-0 flex items-center justify-between border-b p-4 ${theme === "dark" ? "border-white/10 bg-[#121214]" : "border-zinc-100 bg-zinc-50"}`}>
-                      <h3 className="text-sm font-bold">Notificações</h3>
-                      <button onClick={() => setShowNotifications(false)} className="text-muted-foreground hover:text-foreground">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    
-                    {notifications.length > 0 ? (
-                      <div className="divide-y divide-white/5">
-                        {notifications.map((notif) => (
-                          <div key={notif.id} className={`p-4 hover:bg-white/5 transition-colors cursor-pointer ${theme === "dark" ? "" : "hover:bg-zinc-50"}`}>
-                            <div className="flex gap-3">
-                              <span className="text-lg">{notif.icon}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold">{notif.title}</p>
-                                <p className="text-xs opacity-60 line-clamp-2">{notif.description}</p>
-                                <p className="text-[10px] opacity-40 mt-1">{notif.timestamp}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center">
-                        <p className="text-sm opacity-60">Nenhuma notificação no momento</p>
-                      </div>
-                    )}
-                  </div>
-                )}
+{showNotifications && (
+	                  <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[calc(100vw-32px)] sm:w-80 rounded-2xl border shadow-2xl z-50 max-h-96 overflow-y-auto ${
+	                    theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
+	                  }`}>
+	                    <div className={`sticky top-0 flex items-center justify-between border-b p-4 ${theme === "dark" ? "border-white/10 bg-[#121214]" : "border-zinc-100 bg-zinc-50"}`}>
+	                      <div className="flex items-center gap-2">
+	                        <h3 className="text-sm font-bold">Notificações</h3>
+	                        {notifications.length > 0 && (
+	                          <button 
+	                            onClick={() => {
+	                              setClearedNotifications([...clearedNotifications, ...notifications.map(n => n.id)]);
+	                              fireToast("Notificações limpas");
+	                            }}
+	                            className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 hover:text-emerald-400 px-2 py-1 rounded-lg bg-emerald-500/10 transition-colors"
+	                          >
+	                            Limpar tudo
+	                          </button>
+	                        )}
+	                      </div>
+	                      <button onClick={() => setShowNotifications(false)} className="text-muted-foreground hover:text-foreground">
+	                        <X className="h-4 w-4" />
+	                      </button>
+	                    </div>
+	                    
+	                    {notifications.length > 0 ? (
+	                      <div className="divide-y divide-white/5">
+	                        {notifications.map((notif) => (
+	                          <div key={notif.id} className={`p-4 hover:bg-white/5 transition-colors cursor-pointer ${theme === "dark" ? "" : "hover:bg-zinc-50"}`}>
+	                            <div className="flex gap-3">
+	                              <span className="text-lg">{notif.icon}</span>
+	                              <div className="flex-1 min-w-0">
+	                                <p className="text-sm font-bold">{notif.title === 'Pontos Ganhos' && notif.description === 'Confirmou preço' ? 'Avaliou posto' : notif.title}</p>
+	                                <p className="text-xs opacity-60 line-clamp-2">{notif.description === 'Confirmou preço' ? 'Avaliou posto' : notif.description}</p>
+	                                <p className="text-[10px] opacity-40 mt-1">{notif.timestamp}</p>
+	                              </div>
+	                            </div>
+	                          </div>
+	                        ))}
+	                      </div>
+	                    ) : (
+	                      <div className="p-8 text-center">
+	                        <p className="text-sm opacity-60">Nenhuma notificação no momento</p>
+	                      </div>
+	                    )}
+	                  </div>
+	                )}
               </div>
               
 <DropdownMenu>
@@ -580,11 +594,11 @@ function Index() {
               confirmed={confirmed}
               disliked={disliked}
               favorites={favorites}
-              onConfirm={(name) => {
-                setConfirmed([...confirmed, name]);
-                awardForAction("confirm_price");
-                fireToast("Obrigado! +5 pontos abastece+");
-              }}
+onConfirm={(name) => {
+	                setConfirmed([...confirmed, name]);
+	                awardForAction("confirm_price");
+	                fireToast("Obrigado! +5 pontos abastece+");
+	              }}
               onDislike={(name) => {
                 setDisliked([...disliked, name]);
                 fireToast("Obrigado pelo feedback!");
@@ -947,7 +961,7 @@ function PostosSection({
                           ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400 scale-105" 
                           : theme === "dark" ? "bg-white/5 border-white/10 hover:bg-emerald-500/10" : "bg-zinc-50 border-zinc-200 hover:bg-emerald-50"
                       }`}
-                      title="Preço correto (Like)"
+                      title="Avaliar posto (Like)"
                     >👍</button>
                   </AccessControl>
                   <AccessControl requireAuth>
@@ -1533,7 +1547,7 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
           <div className="space-y-2">
             {entries.length > 0 ? entries.slice(0, 3).map((e) => (
               <div key={e.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5">
-                <div className="flex flex-col"><span className="text-[11px] font-bold leading-tight">{e.descricao}</span><span className="text-[9px] opacity-50 mt-0.5">{new Date(e.created_at).toLocaleDateString('pt-BR')}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-bold leading-tight">{e.descricao === 'Confirmou preço' ? 'Avaliou posto' : e.descricao}</span><span className="text-[9px] opacity-50 mt-0.5">{new Date(e.created_at).toLocaleDateString('pt-BR')}</span></div>
                 <span className={`text-xs font-black ${e.delta > 0 ? "text-emerald-400" : "text-red-400"}`}>{e.delta > 0 ? `+${e.delta}` : e.delta}</span>
               </div>
             )) : <p className="text-[10px] opacity-50 py-2">Nenhuma movimentação ainda.</p>}

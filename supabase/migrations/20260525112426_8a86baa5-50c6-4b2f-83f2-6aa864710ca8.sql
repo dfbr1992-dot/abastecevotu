@@ -20,7 +20,7 @@ BEGIN
   END IF;
 
   CASE _action
-    WHEN 'confirm_price' THEN _delta := 5; _desc := 'Confirmou preço';
+    WHEN 'confirm_price' THEN _delta := 5; _desc := 'Avaliou posto';
     ELSE RAISE EXCEPTION 'unknown action';
   END CASE;
 
