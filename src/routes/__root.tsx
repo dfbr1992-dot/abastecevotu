@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { usePWAInstallTracker } from "../hooks/usePWAInstallTracker";
+import { InstallPWA } from "../components/InstallPWA";
 
 function NotFoundComponent() {
   return (
@@ -122,10 +124,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  usePWAInstallTracker();
 
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <InstallPWA />
     </QueryClientProvider>
   );
 }
