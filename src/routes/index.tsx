@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePostos, useServicos } from "@/hooks/use-data-queries";
 import { fmtCurrency } from "@/lib/utils-fmt";
 import { AccessControl } from "@/components/AccessControl";
+import ComingSoonOverlay from "@/components/ComingSoonOverlay";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1398,6 +1399,39 @@ function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: str
 
 
 function PremiosSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number }) {
+  return (
+    <div className="relative">
+      <ComingSoonOverlay 
+        title="Em breve: Abastece+" 
+        description="Estamos preparando prêmios exclusivos para você. O resgate de pontos e o clube de benefícios estarão disponíveis em breve!"
+      />
+      <div className="opacity-40 grayscale pointer-events-none">
+        {isPremium ? (
+          <PlusSection userId={userId} balance={balance} entries={entries} isPremium={isPremium} setIsPremium={setIsPremium} refreshPoints={refreshPoints} requireAuth={requireAuth} fireToast={fireToast} theme={theme} confirmedCount={confirmedCount} />
+        ) : (
+          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
+            <div className="text-center space-y-2">
+              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-xl text-white"><Crown className="h-10 w-10" /></div>
+              <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
+              <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
+            </div>
+            <div className="space-y-4 mt-8">
+              <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Escolha seu Plano</h3>
+              <div className={`rounded-[22px] border p-6 space-y-4 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+                <h4 className="text-lg font-bold">Comunidade</h4>
+                <p className="text-[11px] font-semibold opacity-60 mt-1">Para quem quer apenas consultar os preços da cidade.</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-emerald-500">R$ 0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // O código abaixo foi movido para dentro do bloco acima para manter a visibilidade com transparência
   // Se for assinante, mostrar a seção de prêmios completa
   if (isPremium) {
     return <PlusSection userId={userId} balance={balance} entries={entries} isPremium={isPremium} setIsPremium={setIsPremium} refreshPoints={refreshPoints} requireAuth={requireAuth} fireToast={fireToast} theme={theme} confirmedCount={confirmedCount} />;
