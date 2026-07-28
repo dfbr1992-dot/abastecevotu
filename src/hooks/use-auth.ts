@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { registerPushNotifications } from "@/lib/push-service";
 
 export type UserProfile = {
   id: string;
@@ -18,22 +19,27 @@ export function useAuth() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Escuta mudanças na autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setLoadingAuth(false);
-      // Invalida o cache do perfil quando o usuário deslogar ou logar
-      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
-    });
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+    setSession(s);
+    setLoadingAuth(false);
+    queryClient.invalidateQueries({ queryKey: ["user-profile"] });
 
-    // Pega a sessão inicial
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoadingAuth(false);
-    });
+    if (s?.user?.id) {
+      registerPushNotifications(s.user.id);
+    }
+  });
 
-    return () => subscription.unsubscribe();
-  }, [queryClient]);
+  supabase.auth.getSession().then(({ data }) => {
+    setSession(data.session);
+    setLoadingAuth(false);
+
+    if (data.session?.user?.id) {
+      registerPushNotifications(data.session.user.id);
+    }
+  });
+
+  return () => subscription.unsubscribe();
+}, [queryClient]);
 
   const user = session?.user ?? null;
 
