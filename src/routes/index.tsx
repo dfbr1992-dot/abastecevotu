@@ -1241,7 +1241,6 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user
       <div className="mt-8 space-y-4 pt-2 border-t border-zinc-500/10">
         <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 mb-3 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Calculadoras Inteligentes</h3>
         <div className={`overflow-hidden rounded-[22px] border p-1 ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}><FlexCalculator theme={theme} /></div>
-        <div className={`overflow-hidden rounded-[22px] border p-1 ${theme === "dark" ? "border-white/5 bg-[#161618]" : "border-zinc-200 bg-white"}`}><AverageCalculator theme={theme} /></div>
       </div>
     </section>
   );
@@ -1276,23 +1275,6 @@ function FlexCalculator({ theme }: { theme: string }) {
   );
 }
 
-function AverageCalculator({ theme }: { theme: string }) {
-  const [km, setKm] = useState(""); const [l, setL] = useState("");
-  const avg = useMemo(() => {
-    const k = parseFloat(km.replace(",", ".")); const lit = parseFloat(l.replace(",", "."));
-    if (!k || !lit) return null; return (k / lit).toFixed(1);
-  }, [km, l]);
-  return (
-    <div className={`space-y-3 rounded-2xl p-4 border ${theme === "dark" ? "bg-[#121214] border-white/5" : "bg-white border-zinc-100 shadow-sm"}`}>
-      <h4 className="text-xs font-bold uppercase tracking-wider opacity-50">Média de Combustível</h4>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="Km percorridos"><Input value={km} onChange={(e) => setKm(e.target.value)} placeholder="420" inputMode="decimal" className={theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
-        <Field label="Litros abastecidos"><Input value={l} onChange={(e) => setL(e.target.value)} placeholder="38" inputMode="decimal" className={theme === "dark" ? "bg-[#161618] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
-      </div>
-      {avg && <div className={`rounded-lg px-3 py-2 text-sm font-bold ${theme === "dark" ? "bg-white/5 text-white" : "bg-zinc-100 text-zinc-900"}`}>Média: <span className="text-emerald-500">{avg} km/L</span></div>}
-    </div>
-  );
-}
 
 function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: string | null; setIsPremium: any; fireToast: any; theme: string }) {
   const subscribe = async () => {
