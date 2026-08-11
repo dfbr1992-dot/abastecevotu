@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePostos, useServicos } from "@/hooks/use-data-queries";
 import { fmtCurrency } from "@/lib/utils-fmt";
 import { AccessControl } from "@/components/AccessControl";
+import { MeuConsumoSection } from "@/components/MeuConsumoSection";
 import ComingSoonOverlay from "@/components/ComingSoonOverlay";
 import {
   DropdownMenu,
@@ -611,7 +612,7 @@ onConfirm={(name) => {
           )}
 
           {section === "carro" && (
-            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} isPremium={isPremium} />
+            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} isPremium={isPremium} setSection={goTo} />
           )}
 
           {section === "servicos" && (
@@ -1066,12 +1067,13 @@ function ServicosSection({ dadosServicos, loading, theme, isPremium }: { dadosSe
   );
 }
 
-function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user: any; requireAuth: any; fireToast: any; theme: string; isPremium: boolean }) {
+function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSection }: { user: any; requireAuth: any; fireToast: any; theme: string; isPremium: boolean }) {
   const { vehicle, save } = useVehicle(user?.id ?? null);
   const [form, setForm] = useState({ marca: "", modelo: "", ano: "", placa: "", licenciamento_vencimento: "", seguro_vencimento: "", km_atual: "" });
   const [isExpanded, setIsExpanded] = useState(true);
   const [abastecimentos, setAbastecimentos] = useLocalStorage<any[]>("abastece_fuel_history", []);
   const [showFuelModal, setShowFuelModal] = useState(false);
+  const [showConsumo, setShowConsumo] = useState(false);
   const [fuelForm, setFuelForm] = useState({ data: new Date().toISOString().split('T')[0], litros: "", valor: "", km: "" });
 
   useEffect(() => {
@@ -1162,7 +1164,7 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user
               <span className="text-[11px] font-black uppercase tracking-widest">Abastecer</span>
             </button>
             <button 
-              onClick={() => fireToast("Em breve: Agendamento direto via app!")}
+              onClick={() => setShowConsumo(true)}
               className={`flex flex-col items-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"}`}
             >
               <BarChart3 size={24} />
@@ -1220,7 +1222,17 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user
         </form>
       )}
 
-      <Dialog open={showFuelModal} onOpenChange={setShowFuelModal}>
+{showConsumo && (
+        <MeuConsumoSection
+          userId={user?.id ?? null}
+          vehicle={vehicle}
+          setSection={() => setShowConsumo(false)}
+          onOpenFuelModal={() => { setShowConsumo(false); setShowFuelModal(true); }}
+          theme={theme}
+        />
+      )}
+
+            <Dialog open={showFuelModal} onOpenChange={setShowFuelModal}>
         <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
           <div className="p-6">
             <DialogHeader>
