@@ -1165,8 +1165,8 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium }: { user
               onClick={() => fireToast("Em breve: Agendamento direto via app!")}
               className={`flex flex-col items-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"}`}
             >
-              <Wrench size={24} />
-              <span className="text-[11px] font-black uppercase tracking-widest">Manutenção</span>
+              <BarChart3 size={24} />
+              <span className="text-[11px] font-black uppercase tracking-widest">Consumo</span>
             </button>
           </div>
 
