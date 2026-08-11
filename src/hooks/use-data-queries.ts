@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-// Fórmula de Haversine — calcula distância em km entre dois pontos
 function calcDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -14,7 +13,6 @@ function calcDistance(lat1: number, lng1: number, lat2: number, lng2: number): n
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Pega localização do usuário (retorna centro de Votuporanga se negar)
 function getUserLocation(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
@@ -22,7 +20,7 @@ function getUserLocation(): Promise<{ lat: number; lng: number }> {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve({ lat: -20.4222, lng: -49.9733 }), // fallback se negar
+      () => resolve({ lat: -20.4222, lng: -49.9733 }),
       { timeout: 5000 }
     );
   });
@@ -70,22 +68,42 @@ export function useServicos() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("servicos")
-        .select("nome, nome_servico, endereco, horario, preco, categoria, destaque, ordem, whatsapp")
+        .select("nome, categoria, endereco, telefone, horario, descricao, ativo")
         .eq("ativo", true);
 
       if (error) throw error;
 
-      return data.map((s) => ({
-        name: s.nome_servico,
+      return (data as any[]).map((s) => ({
+        name: s.nome,
         empresa_nome: s.nome,
         address: s.endereco,
         hours: s.horario,
-        price: s.preco,
         categoria: s.categoria,
-        destaque: s.destaque,
-        ordem: s.ordem,
-        whatsapp: s.whatsapp,
+        whatsapp: s.telefone,
+        description: s.descricao,
+        price: null,
+        destaque: false,
+        ordem: 0,
       }));
+    },
+  });
+}
+
+export function useAdminNotifications() {
+  return useQuery({
+    queryKey: ["admin-notifications"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .order("data_envio", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error("Erro ao buscar notificações:", error);
+        return [];
+      }
+      return data;
     },
   });
 }

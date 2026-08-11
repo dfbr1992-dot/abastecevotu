@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      abastecimentos: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          km_atual: number
+          litros: number
+          user_id: string
+          valor_total: number
+          veiculo_id: string
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          id?: string
+          km_atual: number
+          litros: number
+          user_id: string
+          valor_total: number
+          veiculo_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          km_atual?: number
+          litros?: number
+          user_id?: string
+          valor_total?: number
+          veiculo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abastecimentos_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_installations: {
+        Row: {
+          id: string
+          installed_at: string
+        }
+        Insert: {
+          id?: string
+          installed_at?: string
+        }
+        Update: {
+          id?: string
+          installed_at?: string
+        }
+        Relationships: []
+      }
       banners: {
         Row: {
           ativo: boolean
@@ -44,29 +100,117 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          data_envio: string
+          id: string
+          mensagem: string
+          titulo: string
+        }
+        Insert: {
+          data_envio?: string
+          id?: string
+          mensagem: string
+          titulo: string
+        }
+        Update: {
+          data_envio?: string
+          id?: string
+          mensagem?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
       points_ledger: {
         Row: {
+          cpf: string | null
           created_at: string
-          delta: number
-          descricao: string
+          delta: number | null
+          descricao: string | null
+          description: string | null
           id: string
+          invoice_value: number | null
+          points: number | null
+          profile_id: string | null
+          type: string | null
+          user_cpf: string | null
           user_id: string
         }
         Insert: {
+          cpf?: string | null
           created_at?: string
-          delta: number
-          descricao: string
+          delta?: number | null
+          descricao?: string | null
+          description?: string | null
           id?: string
+          invoice_value?: number | null
+          points?: number | null
+          profile_id?: string | null
+          type?: string | null
+          user_cpf?: string | null
           user_id: string
         }
         Update: {
+          cpf?: string | null
           created_at?: string
-          delta?: number
-          descricao?: string
+          delta?: number | null
+          descricao?: string | null
+          description?: string | null
           id?: string
+          invoice_value?: number | null
+          points?: number | null
+          profile_id?: string | null
+          type?: string | null
+          user_cpf?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "points_ledger_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posto_servicos: {
+        Row: {
+          aceita_ticket: boolean
+          carregador_ev: boolean
+          conveniencia: boolean
+          gas_cozinha: boolean
+          posto_id: string
+          troca_oleo: boolean
+          updated_at: string
+        }
+        Insert: {
+          aceita_ticket?: boolean
+          carregador_ev?: boolean
+          conveniencia?: boolean
+          gas_cozinha?: boolean
+          posto_id: string
+          troca_oleo?: boolean
+          updated_at?: string
+        }
+        Update: {
+          aceita_ticket?: boolean
+          carregador_ev?: boolean
+          conveniencia?: boolean
+          gas_cozinha?: boolean
+          posto_id?: string
+          troca_oleo?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posto_servicos_posto_id_fkey"
+            columns: ["posto_id"]
+            isOneToOne: true
+            referencedRelation: "postos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       postos: {
         Row: {
@@ -139,24 +283,81 @@ export type Database = {
           },
         ]
       }
-      profiles: {
+      premios: {
         Row: {
-          created_at: string
-          email: string | null
+          created_at: string | null
+          exclusivo_premium: boolean | null
           id: string
-          is_premium: boolean
+          nome: string
+          pontos_necessarios: number | null
         }
         Insert: {
-          created_at?: string
-          email?: string | null
-          id: string
-          is_premium?: boolean
+          created_at?: string | null
+          exclusivo_premium?: boolean | null
+          id?: string
+          nome: string
+          pontos_necessarios?: number | null
         }
         Update: {
-          created_at?: string
-          email?: string | null
+          created_at?: string | null
+          exclusivo_premium?: boolean | null
           id?: string
+          nome?: string
+          pontos_necessarios?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          city: string | null
+          cpf: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          is_admin: boolean | null
+          is_premium: boolean
+          nome: string | null
+          phone: string | null
+          state: string | null
+          total_points: number | null
+          updated_at: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          is_admin?: boolean | null
           is_premium?: boolean
+          nome?: string | null
+          phone?: string | null
+          state?: string | null
+          total_points?: number | null
+          updated_at?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          city?: string | null
+          cpf?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          is_admin?: boolean | null
+          is_premium?: boolean
+          nome?: string | null
+          phone?: string | null
+          state?: string | null
+          total_points?: number | null
+          updated_at?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -230,34 +431,67 @@ export type Database = {
           ativo: boolean
           categoria: Database["public"]["Enums"]["servico_categoria"]
           created_at: string
+          descricao: string | null
+          destaque: boolean | null
+          duracao: string | null
+          empresa_nome: string | null
           endereco: string | null
           horario: string | null
           id: string
+          imagem_url: string | null
           nome: string
+          nome_servico: string | null
+          ordem: number | null
+          ordem_prioridade: number | null
+          patrocinado: boolean | null
+          preco: number | null
           telefone: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           ativo?: boolean
           categoria: Database["public"]["Enums"]["servico_categoria"]
           created_at?: string
+          descricao?: string | null
+          destaque?: boolean | null
+          duracao?: string | null
+          empresa_nome?: string | null
           endereco?: string | null
           horario?: string | null
           id?: string
+          imagem_url?: string | null
           nome: string
+          nome_servico?: string | null
+          ordem?: number | null
+          ordem_prioridade?: number | null
+          patrocinado?: boolean | null
+          preco?: number | null
           telefone?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           ativo?: boolean
           categoria?: Database["public"]["Enums"]["servico_categoria"]
           created_at?: string
+          descricao?: string | null
+          destaque?: boolean | null
+          duracao?: string | null
+          empresa_nome?: string | null
           endereco?: string | null
           horario?: string | null
           id?: string
+          imagem_url?: string | null
           nome?: string
+          nome_servico?: string | null
+          ordem?: number | null
+          ordem_prioridade?: number | null
+          patrocinado?: boolean | null
+          preco?: number | null
           telefone?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -282,11 +516,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          combustivel_tipo: string | null
+          created_at: string
+          fcm_token: string
+          id: string
+          posto_id: string | null
+          user_id: string
+        }
+        Insert: {
+          combustivel_tipo?: string | null
+          created_at?: string
+          fcm_token: string
+          id?: string
+          posto_id?: string | null
+          user_id: string
+        }
+        Update: {
+          combustivel_tipo?: string | null
+          created_at?: string
+          fcm_token?: string
+          id?: string
+          posto_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       vehicles: {
         Row: {
           ano: number | null
           created_at: string
           id: string
+          km_atual: number | null
           licenciamento_vencimento: string | null
           marca: string
           modelo: string
@@ -299,6 +561,7 @@ export type Database = {
           ano?: number | null
           created_at?: string
           id?: string
+          km_atual?: number | null
           licenciamento_vencimento?: string | null
           marca: string
           modelo: string
@@ -311,6 +574,7 @@ export type Database = {
           ano?: number | null
           created_at?: string
           id?: string
+          km_atual?: number | null
           licenciamento_vencimento?: string | null
           marca?: string
           modelo?: string
@@ -327,6 +591,23 @@ export type Database = {
     }
     Functions: {
       award_points_for_action: { Args: { _action: string }; Returns: number }
+      get_visitor_stats: {
+        Args: { data_fim: string; data_inicio: string }
+        Returns: {
+          novas_instalacoes: number
+          novos_usuarios: number
+          usuarios_ativos: number
+        }[]
+      }
+      get_visitor_stats_series: {
+        Args: { data_fim: string; data_inicio: string }
+        Returns: {
+          dia: string
+          novas_instalacoes: number
+          novos_usuarios: number
+          usuarios_ativos: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
