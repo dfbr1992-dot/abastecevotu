@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 8080",
-    "build": "vite build --clearScreen false",
+    "build": "rmdir /s /q node_modules\\.vite 2>nul & vite build --clearScreen false",
     "preview": "vite preview",
     "build:dev": "vite build --mode development --clearScreen false"
   },
