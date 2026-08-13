@@ -9,6 +9,7 @@ export type Abastecimento = {
   km_atual: number;
   litros: number;
   valor_total: number;
+  combustivel: "etanol" | "gasolina" | "diesel";
   created_at?: string;
 };
 
@@ -37,11 +38,11 @@ export function useAbastecimentos(userId: string | null, veiculoId: string | nul
   });
 
   const addAbastecimento = useMutation({
-    mutationFn: async (payload: { veiculo_id: string; data: string; km_atual: number; litros: number; valor_total: number }) => {
+    mutationFn: async (payload: { veiculo_id: string; data: string; km_atual: number; litros: number; valor_total: number; combustivel: "etanol" | "gasolina" | "diesel" }) => {
       if (!userId) throw new Error("Usuário não autenticado");
       const { data, error } = await supabase
         .from("abastecimentos")
-        .insert({
+        .insert({ ...({} as any), 
           ...payload,
           user_id: userId,
         })
@@ -61,6 +62,19 @@ export function useAbastecimentos(userId: string | null, veiculoId: string | nul
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["abastecimentos"] });
       queryClient.invalidateQueries({ queryKey: ["vehicle"] });
+      queryClient.invalidateQueries({ queryKey: ["consumo_stats"] });
+    },
+  });
+
+  const deleteAbastecimento = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("abastecimentos").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["abastecimentos"] });
+      queryClient.invalidateQueries({ queryKey: ["vehicle"] });
+      queryClient.invalidateQueries({ queryKey: ["consumo_stats"] });
     },
   });
 
@@ -69,5 +83,7 @@ export function useAbastecimentos(userId: string | null, veiculoId: string | nul
     isLoading,
     addAbastecimento: addAbastecimento.mutateAsync,
     isAdding: addAbastecimento.isPending,
+    deleteAbastecimento: deleteAbastecimento.mutateAsync,
+    isDeleting: deleteAbastecimento.isPending,
   };
 }

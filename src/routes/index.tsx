@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePostos, useServicos } from "@/hooks/use-data-queries";
 import { fmtCurrency } from "@/lib/utils-fmt";
 import { AccessControl } from "@/components/AccessControl";
-import { MeuConsumoScreen } from "@/components/MeuConsumoScreen";
+import MeuConsumoScreen from "@/components/MeuConsumoScreen";
+import AbastecerModal from "@/components/AbastecerModal";
 import ComingSoonOverlay from "@/components/ComingSoonOverlay";
 import {
   DropdownMenu,
@@ -158,7 +159,7 @@ function Index() {
   const userId = user?.id ?? null;
   const [section, setSection] = useState<Section>("home");
 const [showConsumo, setShowConsumo] = useState(false);
-  const [showFuelModal, setShowFuelModal] = useState(false);
+  const [showAbastecerModal, setShowAbastecerModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
     const [defaultFuel, setDefaultFuel] = useLocalStorage<Fuel>("abastece_default_fuel", "etanol");
   const [fuel, setFuel] = useState<Fuel>(defaultFuel);
@@ -618,11 +619,11 @@ onConfirm={(name) => {
               userId={user?.id ?? null}
               vehicle={vehicle}
               onBack={() => setShowConsumo(false)}
-              onOpenFuelModal={() => setShowFuelModal(true)}
+              onOpenFuelModal={() => setShowAbastecerModal(true)}
               theme={theme}
             />
           ) : (
-            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} isPremium={isPremium} setSection={goTo} onOpenConsumo={() => setShowConsumo(true)} showFuelModal={showFuelModal} setShowFuelModal={setShowFuelModal} />
+            <CarroSection user={user} requireAuth={requireAuth} fireToast={fireToast} theme={theme} isPremium={isPremium} setSection={goTo} onOpenConsumo={() => setShowConsumo(true)} />
           ))}
 
           {section === "servicos" && (
@@ -652,6 +653,16 @@ onConfirm={(name) => {
           <AccessControl requireAuth>
             <NavItem icon={<Car className="w-5 h-5" />} label="Garagem" active={section === "carro"} onClick={() => goTo("carro")} theme={theme} />
           </AccessControl>
+          <AccessControl requireAuth>
+            <button
+              onClick={() => setShowAbastecerModal(true)}
+              aria-label="Abastecer"
+              className={`flex flex-col items-center justify-center gap-1 w-14 h-full transition-transform active:scale-95 ${theme === "dark" ? "text-white" : "text-zinc-900"}`}
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_4px_16px_rgba(16,185,129,0.45)]"><Droplets className="w-5 h-5" /></span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Abastecer</span>
+            </button>
+          </AccessControl>
           <NavItem icon={<Wrench className="w-5 h-5" />} label="Serviços" active={section === "servicos"} onClick={() => goTo("servicos")} theme={theme} />
           <AccessControl requireAuth>
             <NavItem 
@@ -671,6 +682,14 @@ onConfirm={(name) => {
           </AccessControl>
         </nav>
       </div>
+        <AbastecerModal
+          open={showAbastecerModal}
+          onOpenChange={setShowAbastecerModal}
+          userId={user?.id ?? null}
+          vehicle={vehicle}
+          theme={theme}
+          onSuccess={fireToast}
+        />
     </main>
   );
 }
@@ -1081,8 +1100,8 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSecti
   const { vehicle, save } = useVehicle(user?.id ?? null);
   const [form, setForm] = useState({ marca: "", modelo: "", ano: "", placa: "", licenciamento_vencimento: "", seguro_vencimento: "", km_atual: "" });
   const [isExpanded, setIsExpanded] = useState(true);
-  const [abastecimentos, setAbastecimentos] = useLocalStorage<any[]>("abastece_fuel_history", []);
-  const [fuelForm, setFuelForm] = useState({ data: new Date().toISOString().split('T')[0], litros: "", valor: "", km: "" });
+
+
 
   useEffect(() => {
     if (vehicle) {
@@ -1118,14 +1137,7 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSecti
     } catch { fireToast("Erro ao salvar o veículo"); }
   };
 
-  const handleAddFuel = () => {
-    if (!fuelForm.litros || !fuelForm.valor || !fuelForm.km) return fireToast("Preencha todos os campos");
-    const novo = { ...fuelForm, id: Date.now() };
-    setAbastecimentos([novo, ...abastecimentos]);
-    setShowFuelModal(false);
-    setFuelForm({ data: new Date().toISOString().split('T')[0], litros: "", valor: "", km: "" });
-    fireToast("Abastecimento registrado!");
-  };
+
 
   const licDays = daysUntil(form.licenciamento_vencimento);
   const segDays = daysUntil(form.seguro_vencimento);
@@ -1163,51 +1175,13 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSecti
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={() => setShowFuelModal(true)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-emerald-50 border-emerald-100 text-emerald-600"}`}
-            >
-              <Droplets size={24} />
-              <span className="text-[11px] font-black uppercase tracking-widest">Abastecer</span>
-            </button>
-            <button 
+          <button 
               onClick={() => onOpenConsumo()}
-              className={`flex flex-col items-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"}`}
+              className={`w-full flex items-center justify-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"}`}
             >
               <BarChart3 size={24} />
               <span className="text-[11px] font-black uppercase tracking-widest">Consumo</span>
             </button>
-          </div>
-
-          <div className={`rounded-[22px] border p-5 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <History size={16} className="opacity-50" />
-                <h4 className="text-[11px] font-bold uppercase tracking-widest">Últimos Abastecimentos</h4>
-              </div>
-              {!isPremium && <Crown size={14} className="text-yellow-500" />}
-            </div>
-            
-            {isPremium ? (
-              <div className="space-y-3">
-                {abastecimentos.length > 0 ? abastecimentos.slice(0, 3).map((a: any) => (
-                  <div key={a.id} className={`flex items-center justify-between p-3 rounded-xl ${theme === "dark" ? "bg-white/5" : "bg-zinc-50"}`}>
-                    <div>
-                      <p className="text-xs font-bold">{new Date(a.data).toLocaleDateString('pt-BR')}</p>
-                      <p className="text-[10px] opacity-50">{a.km} KM • {a.litros}L</p>
-                    </div>
-                    <span className="text-sm font-black text-emerald-500">R$ {a.valor}</span>
-                  </div>
-                )) : <p className="text-[10px] opacity-50 py-2 text-center">Nenhum registro ainda.</p>}
-              </div>
-            ) : (
-              <div className="py-4 text-center space-y-2">
-                <p className="text-[11px] opacity-60">Histórico de abastecimentos é exclusivo para assinantes.</p>
-                <button className="text-[10px] font-black uppercase text-emerald-500 underline">Assinar Abastece+</button>
-              </div>
-            )}
-          </div>
         </div>
       ) : (
         <form onSubmit={onSave} className={`relative rounded-[22px] border p-5 ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white shadow-lg"}`}>
@@ -1232,23 +1206,7 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSecti
 
         
 
-            <Dialog open={showFuelModal} onOpenChange={setShowFuelModal}>
-        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
-          <div className="p-6">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black">Registrar Abastecimento</DialogTitle>
-              <DialogDescription className="opacity-60">Acompanhe seu consumo e gastos mensais.</DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-3 mt-6">
-              <Field label="Data"><Input type="date" value={fuelForm.data} onChange={(e) => setFuelForm({...fuelForm, data: e.target.value})} className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
-              <Field label="KM Atual"><Input type="number" value={fuelForm.km} onChange={(e) => setFuelForm({...fuelForm, km: e.target.value})} placeholder="45200" className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
-              <Field label="Litros"><Input type="number" value={fuelForm.litros} onChange={(e) => setFuelForm({...fuelForm, litros: e.target.value})} placeholder="35.5" className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
-              <Field label="Valor Total (R$)"><Input type="number" value={fuelForm.valor} onChange={(e) => setFuelForm({...fuelForm, valor: e.target.value})} placeholder="180.50" className={theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
-            </div>
-            <Button onClick={handleAddFuel} className="mt-6 w-full rounded-xl bg-emerald-500 font-bold text-white">Salvar Registro</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
 
       <div className="mt-8 space-y-4 pt-2 border-t border-zinc-500/10">
         <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 mb-3 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Calculadoras Inteligentes</h3>
