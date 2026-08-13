@@ -12,6 +12,7 @@ import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
 import { useRewards, usePremium, type Reward } from "@/hooks/use-rewards";
 import { supabase } from "@/integrations/supabase/client";
 import { usePostos, useServicos } from "@/hooks/use-data-queries";
+import { usePostoServicos } from "@/hooks/usePostoServicos";
 import { fmtCurrency } from "@/lib/utils-fmt";
 import { AccessControl } from "@/components/AccessControl";
 import MeuConsumoScreen from "@/components/MeuConsumoScreen";
@@ -65,6 +66,10 @@ import {
   Trophy,
   ShieldCheck,
   Bell,
+  ChevronDown,
+  ShoppingCart,
+  Flame,
+  Ticket,
   X,
 } from "lucide-react";
 import {
@@ -827,6 +832,7 @@ function PostosSection({
 }) {
   const [convPosto, setConvPosto] = useState<Posto | null>(null);
   const [showChart, setShowChart] = useState<string | null>(null);
+  const [showComodidades, setShowComodidades] = useState<string | null>(null);
 
   const fmtPrice = (val: number) => {
     if (val === undefined || val === null || isNaN(val)) return "—";
@@ -953,11 +959,11 @@ function PostosSection({
                     {p.distance || 0} km
                   </span>
                   <button 
-                    onClick={() => setShowChart(showChart === p.name ? null : p.name)}
+                    onClick={() => setShowComodidades(showComodidades === p.name ? null : p.name)}
                     className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${theme === "dark" ? "text-emerald-400 hover:text-emerald-300" : "text-emerald-600 hover:text-emerald-500"}`}
                   >
-                    <BarChart3 size={12} />
-                    {showChart === p.name ? "Ocultar" : "Histórico"}
+                    <ChevronDown size={12} className={`transition-transform duration-200 ${showComodidades === p.name ? "rotate-180" : ""}`} />
+                    {showComodidades === p.name ? "Menos" : "Ver mais"}
                   </button>
                 </div>
               </div>
@@ -975,6 +981,7 @@ function PostosSection({
                   )}
                 </div>
               )}
+              {showComodidades === p.name && <PainelComodidades postoId={p.id} theme={theme} />}
 
               <div className="flex items-center justify-between border-t border-border/50 pt-3 mt-1">
                 <div>
@@ -1035,6 +1042,60 @@ function PostosSection({
     </section>
   );
 }
+
+function PainelComodidades({ postoId, theme }: { postoId: string; theme: string }) {
+  const { data: servicos, isLoading } = usePostoServicos(postoId);
+  const itens: Array<{ key: "conveniencia" | "gas_cozinha" | "troca_oleo" | "carregador_ev" | "aceita_ticket"; label: string; Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number; style?: React.CSSProperties }> }> = [
+    { key: "conveniencia", label: "Conveniência", Icon: ShoppingCart },
+    { key: "gas_cozinha", label: "Gás de cozinha", Icon: Flame },
+    { key: "troca_oleo", label: "Troca de óleo", Icon: Droplets },
+    { key: "carregador_ev", label: "Carregador EV", Icon: Zap },
+    { key: "aceita_ticket", label: "Aceita ticket", Icon: Ticket },
+  ];
+  return (
+    <div className={`mt-3 animate-in fade-in slide-in-from-top-2 duration-300 rounded-2xl border p-3 ${theme === "dark" ? "bg-[#121214] border-white/5" : "bg-zinc-50 border-zinc-200"}`}>
+      {isLoading ? (
+        <div className="flex gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-7 w-7 animate-pulse rounded-lg bg-white/10" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {itens.map(({ key, label, Icon }) => {
+            const ativo = Boolean(servicos?.[key]);
+            return (
+              <div
+                key={key}
+                title={label}
+                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all duration-200"
+                style={{
+                  backgroundColor: ativo
+                    ? "rgba(61, 220, 132, 0.12)"
+                    : theme === "dark"
+                      ? "rgba(107, 114, 128, 0.06)"
+                      : "rgba(107, 114, 128, 0.08)",
+                }}
+              >
+                <span style={{ opacity: ativo ? 1 : 0.35, transition: 'opacity 200ms', display: 'inline-flex' }}>
+                  <Icon size={14} color={ativo ? "#3ddc84" : "#454f4a"} strokeWidth={2} />
+                </span>
+                <span
+                  className="text-[10px] font-bold tracking-wide"
+                  style={{ color: ativo ? "#3ddc84" : (theme === "dark" ? "#6b756f" : "#454f4a"), opacity: ativo ? 1 : 0.55 }}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 function ServicosSection({ dadosServicos, loading, theme, isPremium }: { dadosServicos: Servico[]; loading: boolean; theme: string; isPremium: boolean }) {
   const agendarViaWhatsApp = (servico: Servico) => {
