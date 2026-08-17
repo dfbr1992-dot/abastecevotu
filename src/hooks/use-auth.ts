@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { registerPushNotifications } from "@/lib/push-service";
+import {
+  registerPushNotifications,
+  adoptPushSubscriptionOnLogin,
+} from "@/lib/push-service";
 
 export type UserProfile = {
   id: string;
@@ -19,27 +22,42 @@ export function useAuth() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-    setSession(s);
-    setLoadingAuth(false);
-    queryClient.invalidateQueries({ queryKey: ["user-profile"] });
+    let adopted = false;
 
-    if (s?.user?.id) {
-      registerPushNotifications(s.user.id);
-    }
-  });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      setLoadingAuth(false);
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
 
-  supabase.auth.getSession().then(({ data }) => {
-    setSession(data.session);
-    setLoadingAuth(false);
+      if (s?.user?.id) {
+        // Atualiza a inscrição push com o usuário logado e adota a
+        // inscrição anônima (device_id) para não perder o registro pré-login.
+        registerPushNotifications(s.user.id);
+        if (!adopted) {
+          adopted = true;
+          adoptPushSubscriptionOnLogin();
+        }
+      } else {
+        // Fora da sessão: registra a inscrição push anônima (pré-login),
+        // com pedido de permissão de notificação na primeira carga.
+        registerPushNotifications();
+      }
+    });
 
-    if (data.session?.user?.id) {
-      registerPushNotifications(data.session.user.id);
-    }
-  });
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoadingAuth(false);
 
-  return () => subscription.unsubscribe();
-}, [queryClient]);
+      if (data.session?.user?.id) {
+        registerPushNotifications(data.session.user.id);
+        adoptPushSubscriptionOnLogin();
+      } else {
+        registerPushNotifications();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [queryClient]);
 
   const user = session?.user ?? null;
 
