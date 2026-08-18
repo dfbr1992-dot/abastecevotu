@@ -6,7 +6,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // Substitua pelo seu VAPID public key gerado pelo Firebase
-const VAPID_PUBLIC_KEY = "BA57Z49Blal4DE1oz5cgBAFIkhinHfIxFlf2vV0EY0XEpx-1nRQGmEwpZp_1v1OXKMGo4TIFevl169srNrNEM50";
+const VAPID_PUBLIC_KEY = "BHm0aMLhlzuzxEJXTUb15j62z7LAI0tjowLKFT3jDHznvGozW3LjJJprYFo6s1FmLHX2s9MAR0v7i0dRTAQcJJ4";
 
 const DEVICE_ID_KEY = "push_device_id";
 
