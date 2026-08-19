@@ -108,13 +108,13 @@ type Posto = {
   address: string;
   hours: string;
   prices: Record<Fuel, number>;
-  distance: number;
-  verifiedBy: number;
+  distance: number | null;
+  verifiedBy?: number;
   produtos?: Produto[];
-  likes: number;
-  dislikes: number;
-  lat?: number;
-  lng?: number;
+  likes?: number;
+  dislikes?: number;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 type Servico = {
@@ -122,12 +122,13 @@ type Servico = {
   empresa_nome?: string;
   address?: string;
   hours?: string;
-  price: string;
+  price: string | null;
   categoria: string;
-  distance: number;
+  distance?: number;
   destaque?: boolean;
   ordem?: number;
   whatsapp?: string;
+  description?: string;
 };
 
 const fmt = fmtCurrency;
@@ -182,6 +183,9 @@ const [showConsumo, setShowConsumo] = useState(false);
 
   const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
+  // planoAtivo: "free" = usuário escolheu o plano grátis (vê prêmios sem resgate);
+  // "pro" = usuário assinou via Mercado Pago (vê prêmios completos); null = vê a tela de planos
+  const [planoAtivo, setPlanoAtivo] = useState<"free" | "pro" | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [clearedNotifications, setClearedNotifications] = useLocalStorage<string[]>("abastece_cleared_notifications", []);
 
@@ -636,18 +640,37 @@ onConfirm={(name) => {
           )}
 
           {section === "premios" && (
-            <PremiosSection 
-              userId={userId} 
-              balance={balance} 
-              entries={entries} 
-              isPremium={isPremium} 
-              setIsPremium={setIsPremium} 
-              refreshPoints={refreshPoints} 
-              requireAuth={requireAuth} 
-              fireToast={fireToast} 
-              theme={theme} 
-              confirmedCount={confirmed.length}
-            />
+            isPremium || planoAtivo !== null ? (
+              <PlusSection
+                userId={userId}
+                balance={balance}
+                entries={entries}
+                isPremium={isPremium}
+                setIsPremium={setIsPremium}
+                refreshPoints={refreshPoints}
+                requireAuth={requireAuth}
+                fireToast={fireToast}
+                theme={theme}
+                confirmedCount={confirmed.length}
+                setSection={goTo}
+                planoPro={isPremium || planoAtivo === "pro"}
+              />
+            ) : (
+              <PremiosSection
+                userId={userId}
+                balance={balance}
+                entries={entries}
+                isPremium={isPremium}
+                setIsPremium={setIsPremium}
+                refreshPoints={refreshPoints}
+                requireAuth={requireAuth}
+                fireToast={fireToast}
+                theme={theme}
+                confirmedCount={confirmed.length}
+                setSection={goTo}
+                setPlanoAtivo={setPlanoAtivo}
+              />
+            )
           )}
         </div>
 
@@ -1157,7 +1180,7 @@ function ServicosSection({ dadosServicos, loading, theme, isPremium }: { dadosSe
   );
 }
 
-function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSection, onOpenConsumo, showFuelModal, setShowFuelModal }: { user: any; requireAuth: any; fireToast: any; theme: string; isPremium: boolean; onOpenConsumo: () => void; setSection: (s: string) => void; showFuelModal: boolean; setShowFuelModal: (v: boolean) => void; isPremium: boolean }) {
+function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSection, onOpenConsumo, showFuelModal, setShowFuelModal }: { user: any; requireAuth: any; fireToast: any; theme: string; isPremium: boolean; onOpenConsumo: () => void;   setSection: (s: Section) => void; showFuelModal?: boolean; setShowFuelModal?: (v: boolean) => void }) {
   const { vehicle, save } = useVehicle(user?.id ?? null);
   const [form, setForm] = useState({ marca: "", modelo: "", ano: "", placa: "", licenciamento_vencimento: "", seguro_vencimento: "", km_atual: "" });
   const [isExpanded, setIsExpanded] = useState(true);
@@ -1307,12 +1330,26 @@ function FlexCalculator({ theme }: { theme: string }) {
 }
 
 
-function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: string | null; setIsPremium: any; fireToast: any; theme: string }) {
+function PlanosSection({ userId, setIsPremium, fireToast, theme, setPlanoAtivo }: { userId: string | null; setIsPremium: any; fireToast: any; theme: string; setPlanoAtivo: (p: "free" | "pro") => void }) {
   const subscribe = async () => {
-    if (!userId) return;
-    const { error } = await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
-    if (error) return fireToast("Erro ao assinar");
-    setIsPremium(true); fireToast("Bem-vindo ao abastece+ Premium!");
+    if (!userId) return fireToast("Faça login para assinar");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return fireToast("Sessão expirada. Faça login novamente.");
+      const { data, error } = await supabase.functions.invoke("create-subscription", {
+        body: {},
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (error || !data?.init_point) {
+        console.error("Erro ao criar assinatura:", error ?? data);
+        return fireToast("Falha ao iniciar a assinatura. Tente novamente.");
+      }
+      fireToast("Abrindo o pagamento no Mercado Pago...");
+      window.location.href = data.init_point;
+    } catch {
+      fireToast("Falha ao iniciar a assinatura. Tente novamente.");
+    }
   };
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
@@ -1402,7 +1439,7 @@ function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: str
               <span>Suporte prioritário 24/7</span>
             </li>
           </ul>
-          <Button onClick={subscribe} className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-zinc-900 font-black rounded-xl mt-4">ASSINAR E ATIVAR NO APP</Button>
+          <Button onClick={subscribe} className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-zinc-900 font-black rounded-xl mt-4">ASSINAR ABASTECE + PRO</Button>
           <p className="text-[10px] opacity-50 text-center">Cancele quando quiser. Sem fidelidade.</p>
         </div>
       </div>
@@ -1411,151 +1448,128 @@ function PlanosSection({ userId, setIsPremium, fireToast, theme }: { userId: str
 }
 
 
-function PremiosSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number }) {
+function PremiosSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount, setSection, setPlanoAtivo }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; setPlanoAtivo: (p: "free" | "pro") => void }) {
+  const subscribe = async () => {
+    if (!userId) return fireToast("Faça login para assinar");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return fireToast("Sessão expirada. Faça login novamente.");
+      const { data, error } = await supabase.functions.invoke("create-subscription", {
+        body: {},
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (error || !data?.init_point) {
+        console.error("Erro ao criar assinatura:", error ?? data);
+        return fireToast("Falha ao iniciar a assinatura. Tente novamente.");
+      }
+      fireToast("Abrindo o pagamento no Mercado Pago...");
+      window.location.href = data.init_point;
+    } catch {
+      fireToast("Falha ao iniciar a assinatura. Tente novamente.");
+    }
+  };
+
   return (
-    <div className="relative">
-      <ComingSoonOverlay 
-        title="Em breve: Abastece+" 
-        description="Estamos preparando prêmios exclusivos para você. O resgate de pontos e o clube de benefícios estarão disponíveis em breve!"
-      />
-      <div className="opacity-40 grayscale pointer-events-none">
-        {isPremium ? (
-          <PlusSection userId={userId} balance={balance} entries={entries} isPremium={isPremium} setIsPremium={setIsPremium} refreshPoints={refreshPoints} requireAuth={requireAuth} fireToast={fireToast} theme={theme} confirmedCount={confirmedCount} />
-        ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
-            <div className="text-center space-y-2">
-              <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-xl text-white"><Crown className="h-10 w-10" /></div>
-              <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
-              <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
+    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
+      <div className="text-center space-y-2">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-xl text-white"><Crown className="h-10 w-10" /></div>
+        <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
+        <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
+      </div>
+      {/* Card dos planos com o overlay "Em breve" cobrindo apenas esta área */}
+      <div className={`relative rounded-[22px] border overflow-hidden ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
+        <ComingSoonOverlay 
+          title="Em breve: Abastece+" 
+          description="Estamos preparando prêmios exclusivos para você. O resgate de pontos e o clube de benefícios estarão disponíveis em breve!"
+        />
+        <div className="p-6 space-y-4 opacity-40 grayscale pointer-events-none">
+          {/* Plano Comunidade (Grátis) */}
+          <div className={`rounded-[22px] border p-6 space-y-4 ${theme === "dark" ? "bg-white/5 border-white/10" : "bg-zinc-50 border-zinc-200"}`}>
+            <div>
+              <h4 className="text-lg font-bold">Comunidade</h4>
+              <p className={`text-[11px] font-semibold opacity-60 mt-1`}>Para quem quer apenas consultar os preços da cidade.</p>
             </div>
-            <div className="space-y-4 mt-8">
-              <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Escolha seu Plano</h3>
-              <div className={`rounded-[22px] border p-6 space-y-4 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
-                <h4 className="text-lg font-bold">Comunidade</h4>
-                <p className="text-[11px] font-semibold opacity-60 mt-1">Para quem quer apenas consultar os preços da cidade.</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-emerald-500">R$ 0</span>
-                </div>
-              </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-black text-emerald-500">R$ 0</span>
+              <span className="text-xs opacity-60">/sempre</span>
             </div>
+            <ul className="space-y-2.5">
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500 font-bold">✓</span>
+                <span>Lista de postos atualizada</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500 font-bold">✓</span>
+                <span>Mapa interativo de Votuporanga</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500 font-bold">✓</span>
+                <span>Histórico básico de preços</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+                <span className="text-red-500 font-bold">×</span>
+                <span>Resgate de Prêmios</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+                <span className="text-red-500 font-bold">×</span>
+                <span>Sem Anúncios no App</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
+                <span className="text-red-500 font-bold">×</span>
+                <span>Alertas em Tempo Real</span>
+              </li>
+            </ul>
+            <Button onClick={() => setPlanoAtivo("free")} className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-xl mt-4">COMEÇAR GRÁTIS</Button>
           </div>
-        )}
+
+          {/* Plano Abastece+ Pro */}
+          <div className={`rounded-[22px] border-2 border-yellow-500/30 p-6 space-y-4 relative overflow-hidden ${theme === "dark" ? "bg-yellow-500/5" : "bg-yellow-50"}`}>
+            <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-amber-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase">Mais Assinado</div>
+            <div>
+              <h4 className="text-lg font-bold">Abastece+ Pro</h4>
+              <p className={`text-[11px] font-semibold opacity-60 mt-1`}>A experiência definitiva com máxima economia e benefícios exclusivos.</p>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-lg font-bold">R$</span>
+              <span className="text-4xl font-black text-yellow-500">9,90</span>
+              <span className="text-xs opacity-60">/mês</span>
+            </div>
+            <ul className="space-y-2.5">
+              <li className="flex items-center gap-2 text-[12px] font-bold">
+                <span className="text-emerald-500">✓</span>
+                <span>Resgate de Prêmios Exclusivos</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px] font-bold">
+                <span className="text-emerald-500">✓</span>
+                <span>Navegação Sem Anúncios</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500">✓</span>
+                <span>Alertas em tempo real quando o preço cair</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500">✓</span>
+                <span>Cashback e vantagens em postos parceiros</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500">✓</span>
+                <span>Gráficos de tendência e previsão de preços</span>
+              </li>
+              <li className="flex items-center gap-2 text-[12px]">
+                <span className="text-emerald-500">✓</span>
+                <span>Suporte prioritário 24/7</span>
+              </li>
+            </ul>
+            <Button onClick={subscribe} className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-zinc-900 font-black rounded-xl mt-4">ASSINAR ABASTECE + PRO</Button>
+            <p className="text-[10px] opacity-50 text-center">Cancele quando quiser. Sem fidelidade.</p>
+          </div>
+        </div>
       </div>
     </div>
   );
-
-  // O código abaixo foi movido para dentro do bloco acima para manter a visibilidade com transparência
-  // Se for assinante, mostrar a seção de prêmios completa
-  if (isPremium) {
-    return <PlusSection userId={userId} balance={balance} entries={entries} isPremium={isPremium} setIsPremium={setIsPremium} refreshPoints={refreshPoints} requireAuth={requireAuth} fireToast={fireToast} theme={theme} confirmedCount={confirmedCount} />;
-  }
-
-  // Se não for assinante, mostrar os benefícios do Abastece+
-  const subscribe = async () => {
-    if (!userId) return;
-    const { error } = await supabase.from("profiles").update({ is_premium: true }).eq("id", userId);
-    if (error) return fireToast("Erro ao assinar");
-    setIsPremium(true); fireToast("Bem-vindo ao abastece+ Premium!");
-  };
-
-  return (
-    <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
-      <div className="text-center space-y-2">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 shadow-xl text-white"><Crown className="h-10 w-10" /></div>
-        <h2 className={`text-2xl font-black ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>Abastece+ Pro</h2>
-        <p className="text-sm opacity-60">O clube de benefícios exclusivo para motoristas de Votuporanga.</p>
-      </div>
-
-      {/* Comparação de Planos */}
-      <div className="space-y-4 mt-8">
-        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest pl-1 ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Escolha seu Plano</h3>
-        
-        {/* Plano Comunidade (Grátis) */}
-        <div className={`rounded-[22px] border p-6 space-y-4 ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200 shadow-sm"}`}>
-          <div>
-            <h4 className="text-lg font-bold">Comunidade</h4>
-            <p className={`text-[11px] font-semibold opacity-60 mt-1`}>Para quem quer apenas consultar os preços da cidade.</p>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-emerald-500">R$ 0</span>
-            <span className="text-xs opacity-60">/sempre</span>
-          </div>
-          <ul className="space-y-2.5">
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>Lista de postos atualizada</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>Mapa interativo de Votuporanga</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500 font-bold">✓</span>
-              <span>Histórico básico de preços</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
-              <span className="text-red-500 font-bold">×</span>
-              <span>Resgate de Prêmios</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
-              <span className="text-red-500 font-bold">×</span>
-              <span>Sem Anúncios no App</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px] opacity-50 line-through">
-              <span className="text-red-500 font-bold">×</span>
-              <span>Alertas em Tempo Real</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Plano Abastece+ Pro */}
-        <div className={`rounded-[22px] border-2 border-yellow-500/30 p-6 space-y-4 relative overflow-hidden ${theme === "dark" ? "bg-yellow-500/5" : "bg-yellow-50"}`}>
-          <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-amber-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase">Mais Assinado</div>
-          <div>
-            <h4 className="text-lg font-bold">Abastece+ Pro</h4>
-            <p className={`text-[11px] font-semibold opacity-60 mt-1`}>A experiência definitiva com máxima economia e benefícios exclusivos.</p>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold">R$</span>
-            <span className="text-4xl font-black text-yellow-500">9,90</span>
-            <span className="text-xs opacity-60">/mês</span>
-          </div>
-          <ul className="space-y-2.5">
-            <li className="flex items-center gap-2 text-[12px] font-bold">
-              <span className="text-emerald-500">✓</span>
-              <span>Resgate de Prêmios Exclusivos</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px] font-bold">
-              <span className="text-emerald-500">✓</span>
-              <span>Navegação Sem Anúncios</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500">✓</span>
-              <span>Alertas em tempo real quando o preço cair</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500">✓</span>
-              <span>Cashback e vantagens em postos parceiros</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500">✓</span>
-              <span>Gráficos de tendência e previsão de preços</span>
-            </li>
-            <li className="flex items-center gap-2 text-[12px]">
-              <span className="text-emerald-500">✓</span>
-              <span>Suporte prioritário 24/7</span>
-            </li>
-          </ul>
-          <Button onClick={subscribe} className="w-full h-12 bg-yellow-500 hover:bg-yellow-600 text-zinc-900 font-black rounded-xl mt-4">ASSINAR E ATIVAR NO APP</Button>
-          <p className="text-[10px] opacity-50 text-center">Cancele quando quiser. Sem fidelidade.</p>
-        </div>
-      </div>
-    </section>
-  );
 }
-
-
-function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number }) {
+function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount, setSection, planoPro = false }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; planoPro?: boolean }) {
   const rewards = useRewards();
   const [picked, setPicked] = useState<Reward | null>(null);
   const [showLock, setShowLock] = useState(false);
@@ -1563,7 +1577,7 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
 
   const tryRedeem = (r: Reward) => {
     if (!userId) return requireAuth(() => {});
-    if (!isPremium) { setPicked(r); setShowLock(true); return; }
+    if (!isPremium || !planoPro) { setPicked(r); setShowLock(true); return; }
     if (balance < r.custo_pontos) { fireToast("Pontos insuficientes"); return; }
     setPicked(r);
   };
@@ -1592,12 +1606,12 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
         <div className="space-y-3">
           <div className="flex items-center justify-between"><h4 className="text-[10px] font-bold uppercase tracking-widest opacity-60">Últimas Movimentações</h4><span className="text-[9px] font-medium opacity-40">Ver tudo</span></div>
           <div className="space-y-2">
-            {entries.length > 0 ? entries.slice(0, 3).map((e) => (
+            {planoPro && entries.length > 0 ? entries.slice(0, 3).map((e) => (
               <div key={e.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5">
                 <div className="flex flex-col"><span className="text-[11px] font-bold leading-tight">{e.descricao === 'Confirmou preço' ? 'Avaliou posto' : e.descricao}</span><span className="text-[9px] opacity-50 mt-0.5">{new Date(e.created_at).toLocaleDateString('pt-BR')}</span></div>
                 <span className={`text-xs font-black ${e.delta > 0 ? "text-emerald-400" : "text-red-400"}`}>{e.delta > 0 ? `+${e.delta}` : e.delta}</span>
               </div>
-            )) : <p className="text-[10px] opacity-50 py-2">Nenhuma movimentação ainda.</p>}
+            )) : planoPro ? <p className="text-[10px] opacity-50 py-2">Nenhuma movimentação ainda.</p> : <p className="text-[10px] opacity-50 py-2">Resgate de prêmios indisponível no plano gratuito.</p>}
           </div>
         </div>
       </div>
@@ -1624,6 +1638,7 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
         </div>
       </div>
 
+      {planoPro && (
       <div>
         <div className="flex items-center gap-2 mb-4 pl-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-lg shadow-inner">🎁</span>
@@ -1636,31 +1651,34 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
               <h4 className="text-[13px] font-bold leading-tight mb-1">{r.nome}</h4>
               <p className="mb-4 text-[11px] line-clamp-2 h-8 opacity-60">{r.descricao}</p>
               <div className="mt-auto border-t border-white/5 pt-3"><div className="flex items-baseline gap-1"><span className="text-lg font-black text-emerald-500">{r.custo_pontos}</span><span className="text-[9px] font-bold uppercase opacity-40">pontos</span></div></div>
-            </div>
+                        </div>
           ))}
         </div>
       </div>
-
+      )}
+      {planoPro && (
       <Dialog open={showLock} onOpenChange={setShowLock}>
         <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
           <div className="text-center p-6">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500"><Crown className="h-8 w-8" /></div>
             <DialogHeader><DialogTitle className="text-xl font-black">Área Exclusiva</DialogTitle><DialogDescription className="opacity-60">O resgate de prêmios está disponível apenas para membros do clube Abastece+ Pro.</DialogDescription></DialogHeader>
-            <Button onClick={() => { setShowLock(false); setSection("premios"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">CONHECER PLANOS</Button>
+                        <Button onClick={() => { setShowLock(false); setSection("premios"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">FECHAR</Button>
           </div>
         </DialogContent>
       </Dialog>
-
+      )}
+      {planoPro && (
       <Dialog open={!!picked && !showLock && !redeemCode} onOpenChange={() => setPicked(null)}>
         <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
           <div className="p-6 text-center">
             <div className="text-4xl mb-4">{picked?.emoji}</div>
             <DialogHeader><DialogTitle className="text-xl font-black">Confirmar Resgate?</DialogTitle><DialogDescription className="opacity-60">Você usará {picked?.custo_pontos} pontos para resgatar: {picked?.nome}</DialogDescription></DialogHeader>
-            <div className="mt-6 flex gap-3"><Button variant="outline" onClick={() => setPicked(null)} className="flex-1 rounded-xl">Cancelar</Button><Button onClick={confirmRedeem} className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white">Resgatar</Button></div>
+                        <div className="mt-6 flex gap-3"><Button variant="outline" onClick={() => setPicked(null)} className="flex-1 rounded-xl">Cancelar</Button><Button onClick={confirmRedeem} className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white">Resgatar</Button></div>
           </div>
         </DialogContent>
       </Dialog>
-
+      )}
+      {planoPro && (
       <Dialog open={!!redeemCode} onOpenChange={() => setRedeemCode(null)}>
         <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
           <div className="p-6 text-center">
@@ -1669,10 +1687,10 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
             <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"><span className="text-3xl font-black tracking-[0.2em] text-emerald-500">{redeemCode}</span></div>
             <Button onClick={() => setRedeemCode(null)} className="mt-6 w-full rounded-xl bg-emerald-500 font-bold text-white">Entendido</Button>
           </div>
-        </DialogContent>
+                </DialogContent>
       </Dialog>
+      )}
     </section>
   );
 }
-
 export default Index;

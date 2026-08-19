@@ -96,7 +96,7 @@ export function AccessControl({
               onClick={() => {
                 setShowModal(false);
                 if (modalType === "auth") {
-                  navigate({ to: "/login" });
+                  navigate({ to: "/login", search: { redirect: "/" } });
                 } else {
                   if (onUpgrade) onUpgrade();
                 }

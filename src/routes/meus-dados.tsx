@@ -19,7 +19,7 @@ function MeusDadosRoute() {
 export function MeusDadosPage({ theme }: { theme: string }) {
   const navigate = useNavigate();
   const { user, signOut, displayName } = useAuth();
-  const { isPremium } = usePremium();
+  const { isPremium } = usePremium(user?.id ?? null);
   const { balance, entries } = usePoints(user?.id ?? null);
   const { vehicle } = useVehicle(user?.id ?? null);
 

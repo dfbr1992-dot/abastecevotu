@@ -118,6 +118,7 @@ function RecuperarSenhaPage() {
         <div className="text-center mt-6">
           <Link 
             to="/login"
+            search={{ redirect: "/" }}
             className="inline-flex items-center gap-2 text-xs font-bold tracking-wide text-muted-foreground transition-all duration-200 hover:text-white bg-white/[0.02] border border-white/5 hover:border-white/10 px-4 py-2.5 rounded-full backdrop-blur"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Voltar para o Login

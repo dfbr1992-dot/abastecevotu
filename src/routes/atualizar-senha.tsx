@@ -61,7 +61,7 @@ function AtualizarSenhaPage() {
       await supabase.auth.signOut();
 
       toast.success("Senha atualizada com sucesso! Faça login com suas novas credenciais.");
-      navigate({ to: "/login" });
+      navigate({ to: "/login", search: { redirect: "/" } });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro ao atualizar a senha.";
       setErrorMsg(msg);

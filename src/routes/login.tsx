@@ -243,13 +243,13 @@ function LoginPage() {
                 />
                 <label htmlFor="terms" className="text-[11px] text-muted-foreground leading-snug cursor-pointer select-none">
                   Li e estou de acordo com os{" "}
-                  <Link to="/termos" className="text-white underline hover:text-primary transition-colors">
+                  <a href="https://abastecevotu.app/termos.html" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-primary transition-colors">
                     Termos de Uso
-                  </Link>{" "}
+                  </a>{" "}
                   e a{" "}
-                  <Link to="/privacidade" className="text-white underline hover:text-primary transition-colors">
+                  <a href="https://abastecevotu.app/privacidade.html" target="_blank" rel="noopener noreferrer" className="text-white underline hover:text-primary transition-colors">
                     Política de Privacidade
-                  </Link>{" "}
+                  </a>{" "}
                   do Abastece Votu.
                 </label>
               </div>
