@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,7 +16,29 @@ export type UserProfile = {
   is_admin: boolean;
 };
 
-export function useAuth() {
+type AuthContextValue = {
+  session: Session | null;
+  user: User | null;
+  profile: UserProfile | null;
+  isPremium: boolean;
+  isAdmin: boolean;
+  isAuthenticated: boolean;
+  loading: boolean;
+  displayName: string;
+  initials: string;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+// Provider único, montado uma vez na raiz do app (ver src/routes/__root.tsx).
+// Mantém uma única inscrição em supabase.auth.onAuthStateChange e um único
+// registro de push notifications. Antes disso era um hook comum: cada
+// componente que chamava useAuth() (inclusive o <AccessControl> repetido
+// para cada posto da lista) criava sua PRÓPRIA inscrição e disparava
+// registerPushNotifications() de novo, gerando dezenas de listeners
+// duplicados e o aviso "Multiple GoTrueClient instances".
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const queryClient = useQueryClient();
@@ -66,7 +88,7 @@ export function useAuth() {
     queryKey: ["user-profile", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      
+
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -83,16 +105,16 @@ export function useAuth() {
   });
 
   const displayName = getDisplayName(user, profile);
-  
+
   // Níveis de acesso baseados no perfil
   const isPremium = !!profile?.is_premium;
   const isAdmin = !!profile?.is_admin;
   const isAuthenticated = !!user;
 
-  return {
+  const value: AuthContextValue = {
     session,
     user,
-    profile,
+    profile: profile ?? null,
     isPremium,
     isAdmin,
     isAuthenticated,
@@ -105,9 +127,19 @@ export function useAuth() {
       queryClient.invalidateQueries({ queryKey: ["user-profile"] });
     },
   };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-function getDisplayName(user: User | null, profile: any): string {
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth() precisa ser usado dentro de <AuthProvider>");
+  }
+  return ctx;
+}
+
+function getDisplayName(user: User | null, profile: UserProfile | null | undefined): string {
   if (profile?.full_name) return profile.full_name;
   if (profile?.nome) return profile.nome;
   if (!user) return "";

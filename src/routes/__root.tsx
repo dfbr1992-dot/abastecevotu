@@ -11,6 +11,7 @@ import {
 import appCss from "../styles.css?url";
 import { usePWAInstallTracker } from "../hooks/usePWAInstallTracker";
 import { InstallPWA } from "../components/InstallPWA";
+import { AuthProvider } from "../hooks/use-auth";
 
 function NotFoundComponent() {
   return (
@@ -128,8 +129,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <InstallPWA />
+      <AuthProvider>
+        <Outlet />
+        <InstallPWA />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

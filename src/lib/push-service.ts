@@ -1,7 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+import { supabase } from "@/integrations/supabase/client";
 // Substitua pelo seu VAPID public key gerado pelo Firebase
 const VAPID_PUBLIC_KEY = "BHm0aMLhlzuzxEJXTUb15j62z7LAI0tjowLKFT3jDHznvGozW3LjJJprYFo6s1FmLHX2s9MAR0v7i0dRTAQcJJ4";
 const DEVICE_ID_KEY = "push_device_id";
@@ -109,8 +106,8 @@ export async function registerPushNotifications(
       // (user_id, fcm_token, posto_id, combustivel_tipo).
       const { error } = await supabase.rpc("register_user_push_subscription", {
         _fcm_token: token,
-        _posto_id: postoId || null,
-        _combustivel_tipo: combustivelTipo || null,
+        _posto_id: postoId || undefined,
+        _combustivel_tipo: combustivelTipo || undefined,
         _device_id: deviceId,
       });
       if (error) {
