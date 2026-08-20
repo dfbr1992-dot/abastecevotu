@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       abastecimentos: {
         Row: {
+          combustivel: string
           created_at: string
           data: string
           id: string
@@ -26,6 +27,7 @@ export type Database = {
           veiculo_id: string
         }
         Insert: {
+          combustivel?: string
           created_at?: string
           data: string
           id?: string
@@ -36,6 +38,7 @@ export type Database = {
           veiculo_id: string
         }
         Update: {
+          combustivel?: string
           created_at?: string
           data?: string
           id?: string
@@ -55,6 +58,54 @@ export type Database = {
           },
         ]
       }
+      admin_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          read: boolean
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          read?: boolean
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          read?: boolean
+          type?: string
+        }
+        Relationships: []
+      }
+      admin_push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+        }
+        Relationships: []
+      }
       app_installations: {
         Row: {
           id: string
@@ -67,6 +118,48 @@ export type Database = {
         Update: {
           id?: string
           installed_at?: string
+        }
+        Relationships: []
+      }
+      assinaturas: {
+        Row: {
+          created_at: string | null
+          data_cancelamento: string | null
+          data_inicio: string | null
+          data_proxima_cobranca: string | null
+          id: string
+          mp_payer_id: string | null
+          mp_subscription_id: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          data_cancelamento?: string | null
+          data_inicio?: string | null
+          data_proxima_cobranca?: string | null
+          id?: string
+          mp_payer_id?: string | null
+          mp_subscription_id?: string | null
+          status: string
+          updated_at?: string | null
+          user_id: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string | null
+          data_cancelamento?: string | null
+          data_inicio?: string | null
+          data_proxima_cobranca?: string | null
+          id?: string
+          mp_payer_id?: string | null
+          mp_subscription_id?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+          valor?: number
         }
         Relationships: []
       }
@@ -100,28 +193,7 @@ export type Database = {
         }
         Relationships: []
       }
-      notifications: {
-        Row: {
-          data_envio: string
-          id: string
-          mensagem: string
-          titulo: string
-        }
-        Insert: {
-          data_envio?: string
-          id?: string
-          mensagem: string
-          titulo: string
-        }
-        Update: {
-          data_envio?: string
-          id?: string
-          mensagem?: string
-          titulo?: string
-        }
-        Relationships: []
-      }
-      points_ledger: {
+      legacy_points_ledger: {
         Row: {
           cpf: string | null
           created_at: string
@@ -168,6 +240,285 @@ export type Database = {
           {
             foreignKeyName: "points_ledger_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_redemptions: {
+        Row: {
+          codigo: string
+          created_at: string
+          id: string
+          reward_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          id?: string
+          reward_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          id?: string
+          reward_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "legacy_rewards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legacy_rewards: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          custo_pontos: number
+          descricao: string | null
+          emoji: string | null
+          id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          custo_pontos: number
+          descricao?: string | null
+          emoji?: string | null
+          id?: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          custo_pontos?: number
+          descricao?: string | null
+          emoji?: string | null
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      mp_webhook_events: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          event_type: string
+          id: string
+          mp_subscription_id: string | null
+          payload: Json
+          processed: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          event_type: string
+          id?: string
+          mp_subscription_id?: string | null
+          payload: Json
+          processed?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          event_type?: string
+          id?: string
+          mp_subscription_id?: string | null
+          payload?: Json
+          processed?: boolean | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          data_envio: string
+          id: string
+          mensagem: string
+          titulo: string
+        }
+        Insert: {
+          data_envio?: string
+          id?: string
+          mensagem: string
+          titulo: string
+        }
+        Update: {
+          data_envio?: string
+          id?: string
+          mensagem?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
+      operadores_turno: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          posto_id: string
+          turno: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          posto_id: string
+          turno: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          posto_id?: string
+          turno?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operadores_turno_posto_id_fkey"
+            columns: ["posto_id"]
+            isOneToOne: false
+            referencedRelation: "postos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pontos_codigos: {
+        Row: {
+          codigo: string
+          created_at: string
+          expira_em: string
+          id: string
+          posto_id: string
+          premio_id: string | null
+          quantidade_pontos: number | null
+          status: string
+          tipo: string
+          usado_em: string | null
+          usado_por: string | null
+          user_id: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          expira_em: string
+          id?: string
+          posto_id: string
+          premio_id?: string | null
+          quantidade_pontos?: number | null
+          status?: string
+          tipo: string
+          usado_em?: string | null
+          usado_por?: string | null
+          user_id: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          expira_em?: string
+          id?: string
+          posto_id?: string
+          premio_id?: string | null
+          quantidade_pontos?: number | null
+          status?: string
+          tipo?: string
+          usado_em?: string | null
+          usado_por?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pontos_codigos_posto_id_fkey"
+            columns: ["posto_id"]
+            isOneToOne: false
+            referencedRelation: "postos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pontos_codigos_premio_id_fkey"
+            columns: ["premio_id"]
+            isOneToOne: false
+            referencedRelation: "premios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pontos_codigos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pontos_transacoes: {
+        Row: {
+          codigo_id: string | null
+          created_at: string
+          criado_por: string | null
+          id: string
+          motivo: string
+          posto_id: string
+          quantidade: number
+          tipo: string
+          user_id: string
+          valor_gasto: number | null
+        }
+        Insert: {
+          codigo_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo: string
+          posto_id: string
+          quantidade: number
+          tipo: string
+          user_id: string
+          valor_gasto?: number | null
+        }
+        Update: {
+          codigo_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          posto_id?: string
+          quantidade?: number
+          tipo?: string
+          user_id?: string
+          valor_gasto?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pontos_transacoes_codigo_id_fkey"
+            columns: ["codigo_id"]
+            isOneToOne: false
+            referencedRelation: "pontos_codigos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pontos_transacoes_posto_id_fkey"
+            columns: ["posto_id"]
+            isOneToOne: false
+            referencedRelation: "postos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pontos_transacoes_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -223,6 +574,7 @@ export type Database = {
           lat: number | null
           lng: number | null
           nome: string
+          pontos_por_real: number
           updated_at: string
         }
         Insert: {
@@ -235,6 +587,7 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           nome: string
+          pontos_por_real?: number
           updated_at?: string
         }
         Update: {
@@ -247,6 +600,7 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           nome?: string
+          pontos_por_real?: number
           updated_at?: string
         }
         Relationships: []
@@ -285,27 +639,41 @@ export type Database = {
       }
       premios: {
         Row: {
+          ativo: boolean
           created_at: string | null
-          exclusivo_premium: boolean | null
+          exclusivo_premium: boolean
           id: string
           nome: string
-          pontos_necessarios: number | null
+          pontos_necessarios: number
+          posto_id: string | null
         }
         Insert: {
+          ativo?: boolean
           created_at?: string | null
-          exclusivo_premium?: boolean | null
+          exclusivo_premium?: boolean
           id?: string
           nome: string
-          pontos_necessarios?: number | null
+          pontos_necessarios: number
+          posto_id?: string | null
         }
         Update: {
+          ativo?: boolean
           created_at?: string | null
-          exclusivo_premium?: boolean | null
+          exclusivo_premium?: boolean
           id?: string
           nome?: string
-          pontos_necessarios?: number | null
+          pontos_necessarios?: number
+          posto_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "premios_posto_id_fkey"
+            columns: ["posto_id"]
+            isOneToOne: false
+            referencedRelation: "postos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -358,71 +726,6 @@ export type Database = {
           total_points?: number | null
           updated_at?: string | null
           whatsapp?: string | null
-        }
-        Relationships: []
-      }
-      redemptions: {
-        Row: {
-          codigo: string
-          created_at: string
-          id: string
-          reward_id: string
-          status: string
-          user_id: string
-        }
-        Insert: {
-          codigo: string
-          created_at?: string
-          id?: string
-          reward_id: string
-          status?: string
-          user_id: string
-        }
-        Update: {
-          codigo?: string
-          created_at?: string
-          id?: string
-          reward_id?: string
-          status?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "redemptions_reward_id_fkey"
-            columns: ["reward_id"]
-            isOneToOne: false
-            referencedRelation: "rewards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      rewards: {
-        Row: {
-          ativo: boolean
-          created_at: string
-          custo_pontos: number
-          descricao: string | null
-          emoji: string | null
-          id: string
-          nome: string
-        }
-        Insert: {
-          ativo?: boolean
-          created_at?: string
-          custo_pontos: number
-          descricao?: string | null
-          emoji?: string | null
-          id?: string
-          nome: string
-        }
-        Update: {
-          ativo?: boolean
-          created_at?: string
-          custo_pontos?: number
-          descricao?: string | null
-          emoji?: string | null
-          id?: string
-          nome?: string
         }
         Relationships: []
       }
@@ -520,26 +823,32 @@ export type Database = {
         Row: {
           combustivel_tipo: string | null
           created_at: string
+          device_id: string | null
           fcm_token: string
           id: string
           posto_id: string | null
-          user_id: string
+          updated_at: string
+          user_id: string | null
         }
         Insert: {
           combustivel_tipo?: string | null
           created_at?: string
+          device_id?: string | null
           fcm_token: string
           id?: string
           posto_id?: string | null
-          user_id: string
+          updated_at?: string
+          user_id?: string | null
         }
         Update: {
           combustivel_tipo?: string | null
           created_at?: string
+          device_id?: string | null
           fcm_token?: string
           id?: string
           posto_id?: string | null
-          user_id?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -587,10 +896,90 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      push_audience_segments: {
+        Row: {
+          device_id: string | null
+          segmento: string | null
+          subscription_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          device_id?: string | null
+          segmento?: never
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          device_id?: string | null
+          segmento?: never
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      saldo_pontos_por_posto: {
+        Row: {
+          posto_id: string | null
+          saldo: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pontos_transacoes_posto_id_fkey"
+            columns: ["posto_id"]
+            isOneToOne: false
+            referencedRelation: "postos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pontos_transacoes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usuarios_premium_ativos: {
+        Row: {
+          data_cancelamento: string | null
+          data_inicio: string | null
+          data_proxima_cobranca: string | null
+          mp_subscription_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+          valor: number | null
+        }
+        Insert: {
+          data_cancelamento?: string | null
+          data_inicio?: string | null
+          data_proxima_cobranca?: string | null
+          mp_subscription_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          valor?: number | null
+        }
+        Update: {
+          data_cancelamento?: string | null
+          data_inicio?: string | null
+          data_proxima_cobranca?: string | null
+          mp_subscription_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          valor?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      award_points_for_action: { Args: { _action: string }; Returns: number }
+      adopt_push_subscription: {
+        Args: { _device_id: string }
+        Returns: undefined
+      }
+      count_push_segment: { Args: { _segmento: string }; Returns: number }
       get_visitor_stats: {
         Args: { data_fim: string; data_inicio: string }
         Returns: {
@@ -615,7 +1004,30 @@ export type Database = {
         }
         Returns: boolean
       }
-      redeem_reward: { Args: { _reward_id: string }; Returns: string }
+      insert_admin_notification: {
+        Args: { _payload: Json; _type: string }
+        Returns: undefined
+      }
+      legacy_award_points_for_action: {
+        Args: { _action: string }
+        Returns: number
+      }
+      legacy_redeem_reward: { Args: { _reward_id: string }; Returns: string }
+      posto_do_operador_atual: { Args: never; Returns: string }
+      register_admin_push: {
+        Args: { _auth_key: string; _endpoint: string; _p256dh: string }
+        Returns: undefined
+      }
+      register_user_push_subscription: {
+        Args: {
+          _combustivel_tipo?: string
+          _device_id?: string
+          _fcm_token: string
+          _posto_id?: string
+        }
+        Returns: undefined
+      }
+      validar_resgate_codigo: { Args: { p_codigo: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin"

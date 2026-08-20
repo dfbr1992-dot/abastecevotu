@@ -9,7 +9,8 @@ import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useAuth } from "@/hooks/use-auth";
 import { usePoints } from "@/hooks/use-points";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
-import { useRewards, usePremium, type Reward } from "@/hooks/use-rewards";
+import { usePremium } from "@/hooks/use-rewards";
+import { usePremiosPorPosto, useSaldoPorPosto, type Premio } from "@/hooks/use-premios";
 import { supabase } from "@/integrations/supabase/client";
 import { usePostos, useServicos } from "@/hooks/use-data-queries";
 import { usePostoServicos } from "@/hooks/usePostoServicos";
@@ -43,6 +44,7 @@ import {
   Car,
   Wrench,
   Gift,
+  Lock,
   AlertTriangle,
   Crown,
   Loader2,
@@ -71,6 +73,7 @@ import {
   Flame,
   Ticket,
   X,
+  Pencil,
 } from "lucide-react";
 import {
   AreaChart,
@@ -96,7 +99,7 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-type Section = "home" | "postos" | "carro" | "servicos" | "premios";
+type Section = "home" | "postos" | "carro" | "servicos" | "premios" | "assinatura";
 type Fuel = "etanol" | "gasolina" | "diesel";
 type SortBy = "price" | "distance";
 
@@ -183,11 +186,26 @@ const [showConsumo, setShowConsumo] = useState(false);
 
   const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
+
+  // ===== FASE 1 — abrir planos =====
+  // ===== FASE 2 — abrir tela de assinatura (Abastece+ Pro) =====
+  const abrirAssinatura = useCallback(() => {
+    if (!user) {
+      navigate({ to: "/login", search: { redirect: "/" } });
+      return;
+    }
+    setSection("assinatura");
+  }, [user, navigate, setSection]);
+  // ===== FIM FASE 2 =====
+  // ===== FIM FASE 1 =====
+
   // planoAtivo: "free" = usuário escolheu o plano grátis (vê prêmios sem resgate);
   // "pro" = usuário assinou via Mercado Pago (vê prêmios completos); null = vê a tela de planos
   const [planoAtivo, setPlanoAtivo] = useState<"free" | "pro" | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [clearedNotifications, setClearedNotifications] = useLocalStorage<string[]>("abastece_cleared_notifications", []);
+  // Notificações de boas-vindas já exibidas (evita repetir toda vez que abre o app)
+  const [welcomed, setWelcomed] = useLocalStorage<boolean>("abastece_welcomed", false);
 
     const { vehicle } = useVehicle(userId);
 
@@ -195,6 +213,31 @@ const [showConsumo, setShowConsumo] = useState(false);
   const notifications = useMemo(() => {
     const notifs: Array<{ id: string; type: 'points' | 'vehicle' | 'promotion'; title: string; description: string; icon: string; timestamp: string }> = [];
     
+    // 0. Boas-vindas — aparece apenas uma vez
+    if (!welcomed) {
+      notifs.push({
+        id: 'welcome-1',
+        type: 'promotion',
+        title: 'Bem-vindo ao Abastece Votu!',
+        description: 'Compare preços, agende serviços e ganhe pontos nos postos de Votuporanga.',
+        icon: '👋',
+        timestamp: 'Agora',
+      });
+    }
+
+    // 0b. Primeiro abastecimento registrado — feedback de que o registro funciona
+    const firstRefuelId = entries.find(e => e.delta > 0);
+    if (firstRefuelId && !welcomed) {
+      notifs.push({
+        id: 'welcome-refuel',
+        type: 'points',
+        title: 'Primeiro abastecimento registrado',
+        description: 'Seus abastecimentos já aparecem no menu Consumo e contam pontos.',
+        icon: '⛽',
+        timestamp: 'Agora',
+      });
+    }
+
     // 1. Promoções (Simuladas a partir do AdCarousel)
     if (!isPremium) {
       notifs.push({
@@ -249,7 +292,13 @@ const [showConsumo, setShowConsumo] = useState(false);
     }
     
     return notifs.filter(n => !clearedNotifications.includes(n.id));
-  }, [entries, vehicle, clearedNotifications]);
+  }, [entries, vehicle, clearedNotifications, welcomed]);
+  // Marcar boas-vindas como vistas quando o painel abre e a notificação de boas-vindas aparece
+  useEffect(() => {
+    if (showNotifications && !welcomed) {
+      setWelcomed(true);
+    }
+  }, [showNotifications, welcomed, setWelcomed]);
 
   useEffect(() => {
     if (showSplash) {
@@ -361,97 +410,102 @@ const [showConsumo, setShowConsumo] = useState(false);
           </div>
         )}
 
-        <header className={`relative z-20 flex items-center justify-between border-b px-4 py-3 transition-colors duration-200 ${
-          theme === "dark" 
-            ? "border-white/5 bg-[#121214]/80 backdrop-blur-md" 
-            : "border-zinc-200 bg-white/95 backdrop-blur-md shadow-sm"
-        }`}>
-          <div className="flex items-center gap-2.5">
-            <img
-              src={theme === "dark" ? `${logoBranca}?v=1` : `${logoPreta}?v=2`}
-              alt="Abastece Votu"
-              className="h-9 w-auto object-contain"
-            />
+        <header
+          className={`relative z-20 flex items-center justify-between border-b px-4 transition-colors duration-200 ${
+            theme === "dark"
+              ? "border-white/5 bg-[#121214]/80 backdrop-blur-md"
+              : "border-zinc-200 bg-white/95 backdrop-blur-md shadow-sm"
+          }`}
+          style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
+        >
+          <div className="flex flex-col py-3.5">
+            <h1 className={`text-xl font-black leading-tight ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
+              Olá, {displayName ? displayName.split(" ")[0] : "Motorista"}!
+            </h1>
+            <p className="text-[11px] font-bold uppercase tracking-widest opacity-40">Abastece Votu</p>
           </div>
-          {user ? (
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className={`flex items-center justify-center h-9 w-9 rounded-full border transition-all ${
-                    showNotifications
-                      ? theme === "dark" ? "border-emerald-500/30 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50"
-                      : theme === "dark" ? "border-white/10 bg-white/5 hover:bg-white/10" : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100"
-                  }`}
-                  title="Notificações"
-                >
-                  <Bell className={`h-4 w-4 ${showNotifications ? "text-emerald-500" : theme === "dark" ? "text-zinc-400" : "text-zinc-600"}`} />
-                  {notifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                      {notifications.length > 9 ? '9+' : notifications.length}
-                    </span>
+          <div className="flex items-center gap-1.5 pb-2.5">
+            {!isPremium && (
+              <button
+                onClick={abrirAssinatura}
+                aria-label="Assinar Abastece+ Pro"
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-[11px] font-black uppercase tracking-wide transition-transform active:scale-95 bg-yellow-500 text-zinc-900 shadow-[0_2px_12px_rgba(234,179,8,0.35)]`}
+              >
+                <Crown className="h-4 w-4" />
+                <span className="hidden sm:inline">Assinar</span>
+              </button>
+            )}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                aria-label={showNotifications ? "Fechar notificações" : "Abrir notificações"}
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-transform active:scale-95 ${
+                  showNotifications
+                    ? theme === "dark" ? "border-emerald-500/30 bg-emerald-500/10" : "border-emerald-200 bg-emerald-50"
+                    : theme === "dark" ? "border-white/10 bg-white/5" : "border-zinc-200 bg-zinc-50"
+                }`}
+              >
+                <Bell className={`h-5 w-5 ${showNotifications ? "text-emerald-500" : theme === "dark" ? "text-zinc-400" : "text-zinc-600"}`} />
+                {notifications.length > 0 && (
+                  <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {notifications.length > 9 ? '9+' : notifications.length}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className={`fixed inset-x-2 top-[calc(env(safe-area-inset-top)+64px)] z-50 sm:static sm:right-0 sm:top-full sm:inset-x-auto mt-0 sm:mt-2 w-auto rounded-2xl border shadow-2xl max-h-96 overflow-y-auto ${
+                  theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
+                }`}>
+                  <div className={`sticky top-0 flex items-center justify-between border-b p-4 ${theme === "dark" ? "border-white/10 bg-[#121214]" : "border-zinc-100 bg-zinc-50"}`}>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold">Notificações</h3>
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setClearedNotifications([...clearedNotifications, ...notifications.map(n => n.id)]);
+                            fireToast("Notificações limpas");
+                          }}
+                          aria-label="Limpar todas as notificações"
+                          className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 transition-colors active:opacity-70 px-2 py-1 rounded-lg bg-emerald-500/10"
+                        >
+                          Limpar tudo
+                        </button>
+                      )}
+                    </div>
+                    <button onClick={() => setShowNotifications(false)} aria-label="Fechar painel de notificações" className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground transition-colors active:opacity-70">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {notifications.length > 0 ? (
+                    <div className="divide-y divide-white/5">
+                      {notifications.map((notif) => (
+                        <div key={notif.id} className={`p-4 transition-colors active:bg-white/5 ${theme === "dark" ? "" : "active:bg-zinc-50"}`}>
+                          <div className="flex gap-3">
+                            <span className="text-lg">{notif.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold">{notif.title === 'Pontos Ganhos' && notif.description === 'Confirmou preço' ? 'Avaliou posto' : notif.title}</p>
+                              <p className="text-xs opacity-60 line-clamp-2">{notif.description === 'Confirmou preço' ? 'Avaliou posto' : notif.description}</p>
+                              <p className="text-[10px] opacity-40 mt-1">{notif.timestamp}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center">
+                      <p className="text-sm opacity-60">Nenhuma notificação no momento</p>
+                    </div>
                   )}
-                </button>
-                
-{showNotifications && (
-	                  <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-[calc(100vw-32px)] sm:w-80 rounded-2xl border shadow-2xl z-50 max-h-96 overflow-y-auto ${
-	                    theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"
-	                  }`}>
-	                    <div className={`sticky top-0 flex items-center justify-between border-b p-4 ${theme === "dark" ? "border-white/10 bg-[#121214]" : "border-zinc-100 bg-zinc-50"}`}>
-	                      <div className="flex items-center gap-2">
-	                        <h3 className="text-sm font-bold">Notificações</h3>
-	                        {notifications.length > 0 && (
-	                          <button 
-	                            onClick={() => {
-	                              setClearedNotifications([...clearedNotifications, ...notifications.map(n => n.id)]);
-	                              fireToast("Notificações limpas");
-	                            }}
-	                            className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 hover:text-emerald-400 px-2 py-1 rounded-lg bg-emerald-500/10 transition-colors"
-	                          >
-	                            Limpar tudo
-	                          </button>
-	                        )}
-	                      </div>
-	                      <button onClick={() => setShowNotifications(false)} className="text-muted-foreground hover:text-foreground">
-	                        <X className="h-4 w-4" />
-	                      </button>
-	                    </div>
-	                    
-	                    {notifications.length > 0 ? (
-	                      <div className="divide-y divide-white/5">
-	                        {notifications.map((notif) => (
-	                          <div key={notif.id} className={`p-4 hover:bg-white/5 transition-colors cursor-pointer ${theme === "dark" ? "" : "hover:bg-zinc-50"}`}>
-	                            <div className="flex gap-3">
-	                              <span className="text-lg">{notif.icon}</span>
-	                              <div className="flex-1 min-w-0">
-	                                <p className="text-sm font-bold">{notif.title === 'Pontos Ganhos' && notif.description === 'Confirmou preço' ? 'Avaliou posto' : notif.title}</p>
-	                                <p className="text-xs opacity-60 line-clamp-2">{notif.description === 'Confirmou preço' ? 'Avaliou posto' : notif.description}</p>
-	                                <p className="text-[10px] opacity-40 mt-1">{notif.timestamp}</p>
-	                              </div>
-	                            </div>
-	                          </div>
-	                        ))}
-	                      </div>
-	                    ) : (
-	                      <div className="p-8 text-center">
-	                        <p className="text-sm opacity-60">Nenhuma notificação no momento</p>
-	                      </div>
-	                    )}
-	                  </div>
-	                )}
-              </div>
-              
-<DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <button className={`flex items-center gap-2 rounded-full border px-1 py-1 pr-3 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-white/5" : "border-zinc-200 bg-zinc-100 hover:bg-zinc-200/80"}`}>
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-bold text-emerald-500">
-        {displayName ? displayName.charAt(0).toUpperCase() : "U"}
-      </span>
-      <span className={`max-w-[100px] truncate text-[12px] font-bold ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>
-        {displayName?.split(" ")[0] || "Perfil"}
-      </span>
-    </button>
-  </DropdownMenuTrigger>
+                </div>
+              )}
+            </div>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button aria-label="Abrir menu da conta" className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border transition-transform active:scale-95 ${theme === "dark" ? "border-white/10 bg-white/5" : "border-zinc-200 bg-zinc-50"}`}>
+                    <User className={`h-5 w-5 ${theme === "dark" ? "text-white" : "text-zinc-600"}`} />
+                  </button>
+                </DropdownMenuTrigger>
   <DropdownMenuContent align="end" className={`w-72 rounded-[20px] shadow-xl p-0 border overflow-hidden ${theme === "dark" ? "bg-[#0b0f19] border-white/10 text-white" : "bg-white border-zinc-200 text-zinc-900"}`}>
     
     {/* CARD DE PERFIL COM RESUMO */}
@@ -586,13 +640,18 @@ const [showConsumo, setShowConsumo] = useState(false);
     </div>
   </DropdownMenuContent>
 </DropdownMenu>
-
-            </div>
-          ) : (
-            <button onClick={() => navigate({ to: "/login", search: { redirect: "/" } })} className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm transition hover:opacity-90">
-              <LogIn className="w-3 h-3" /> Entrar
-            </button>
-          )}
+            ) : (
+              <button
+                onClick={() => navigate({ to: "/login", search: { redirect: "/" } })}
+                aria-label="Entrar na conta"
+                className={`flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full px-3 text-[11px] font-black uppercase tracking-wide transition-transform active:scale-95 ${
+                  theme === "dark" ? "bg-primary text-primary-foreground" : "bg-primary text-primary-foreground"
+                }`}
+              >
+                <LogIn className="w-4 h-4" /> Entrar
+              </button>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 pb-[80px]">
@@ -639,38 +698,34 @@ onConfirm={(name) => {
             <ServicosSection dadosServicos={dadosServicos} loading={loadingServicos} theme={theme} isPremium={isPremium} />
           )}
 
+          {section === "assinatura" && (
+            <AssinaturaSection
+              userId={userId}
+              balance={balance}
+              entries={entries}
+              isPremium={isPremium}
+              setIsPremium={setIsPremium}
+              refreshPoints={refreshPoints}
+              requireAuth={requireAuth}
+              fireToast={fireToast}
+              theme={theme}
+              confirmedCount={confirmed.length}
+              setSection={goTo}
+              setPlanoAtivo={setPlanoAtivo}
+            />
+          )}
           {section === "premios" && (
-            isPremium || planoAtivo !== null ? (
-              <PlusSection
-                userId={userId}
-                balance={balance}
-                entries={entries}
-                isPremium={isPremium}
-                setIsPremium={setIsPremium}
-                refreshPoints={refreshPoints}
-                requireAuth={requireAuth}
-                fireToast={fireToast}
-                theme={theme}
-                confirmedCount={confirmed.length}
-                setSection={goTo}
-                planoPro={isPremium || planoAtivo === "pro"}
-              />
-            ) : (
-              <PremiosSection
-                userId={userId}
-                balance={balance}
-                entries={entries}
-                isPremium={isPremium}
-                setIsPremium={setIsPremium}
-                refreshPoints={refreshPoints}
-                requireAuth={requireAuth}
-                fireToast={fireToast}
-                theme={theme}
-                confirmedCount={confirmed.length}
-                setSection={goTo}
-                setPlanoAtivo={setPlanoAtivo}
-              />
-            )
+            <PlusSection
+              userId={userId}
+              postos={postos}
+              isPremium={isPremium}
+              setIsPremium={setIsPremium}
+              requireAuth={requireAuth}
+              fireToast={fireToast}
+              theme={theme}
+              confirmedCount={confirmed.length}
+              setSection={goTo}
+            />
           )}
         </div>
 
@@ -1135,6 +1190,18 @@ function ServicosSection({ dadosServicos, loading, theme, isPremium }: { dadosSe
     });
   }, [dadosServicos]);
 
+  // Filtro por categoria (rótulos dinâmicos; "Todos" primeiro)
+  const [cat, setCat] = useState<string>("todos");
+  const categorias = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of dadosServicos) if (s.categoria) set.add(s.categoria);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [dadosServicos]);
+  const servicosFiltrados = useMemo(
+    () => (cat === "todos" ? servicosOrdenados : servicosOrdenados.filter((s) => s.categoria === cat)),
+    [cat, servicosOrdenados],
+  );
+
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 pt-2">
       {!isPremium && (
@@ -1142,35 +1209,76 @@ function ServicosSection({ dadosServicos, loading, theme, isPremium }: { dadosSe
           <AdCarousel onAdClick={() => {}} />
         </div>
       )}
-      
-      <div className="flex items-center gap-2 mb-5 pl-1">
-        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-lg shadow-inner ${theme === "dark" ? "bg-white/10" : "bg-zinc-100"}`}>🛠️</span>
-        <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Serviços em Votuporanga</h3>
+
+      <div className="mb-5 space-y-3">
+        <div className="flex items-center gap-2 pl-1">
+          <Wrench className={`h-4 w-4 ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`} aria-label="" />
+          <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Serviços em Votuporanga</h3>
+        </div>
+
+        {categorias.length > 0 && (
+          <div className={`flex gap-2 rounded-2xl p-1.5 border ${theme === "dark" ? "bg-[#121214] border-white/5" : "bg-zinc-100 border-zinc-200"}`}>
+            {["todos", ...categorias].map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Filtrar serviços por ${c === "todos" ? "todas as categorias" : c}`}
+                onClick={() => setCat(c)}
+                className={`flex-1 rounded-xl py-2 min-h-[44px] text-[12px] font-bold capitalize transition-all active:scale-[0.97] ${
+                  cat === c
+                    ? theme === "dark" ? "bg-white/10 text-white shadow-md border border-white/10" : "bg-white text-zinc-900 shadow-sm border border-zinc-200"
+                    : theme === "dark" ? "text-muted-foreground active:bg-white/5 active:text-white" : "text-zinc-500 active:bg-zinc-200/60 active:text-zinc-900"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
+
       {loading ? (
-        <div className="flex justify-center p-10"><Loader2 className="animate-spin text-primary" /></div>
+        <div className="flex justify-center p-10" aria-label="Carregando serviços"><Loader2 className="animate-spin text-primary" /></div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 pb-20">
-          {servicosOrdenados.map((s, i) => (
-            <div key={i} className={`relative overflow-hidden rounded-[22px] border p-5 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-[#1a1a1d]" : "border-zinc-200 bg-white shadow-md hover:shadow-lg"}`}>
+        <div className="space-y-4 pb-20">
+          {servicosFiltrados.length === 0 && !loading && (
+            <div className={`rounded-[22px] border p-8 text-center ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white"}`}>
+              <p className={`text-sm font-bold ${theme === "dark" ? "text-muted-foreground" : "text-zinc-500"}`}>Nenhum serviço {cat !== "todos" ? `na categoria "${cat}"` : ""} encontrado.</p>
+            </div>
+          )}
+          {servicosFiltrados.map((s, i) => (
+            <div key={i} role="article" aria-label={`Serviço: ${s.name}`} className={`relative overflow-hidden rounded-[22px] border p-5 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white shadow-md"}`}>
               <div className="flex items-start justify-between mb-4">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className={`truncate text-lg font-black tracking-tight ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>{s.name}</h4>
                     {s.destaque && <span className="bg-yellow-500/20 text-yellow-500 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Destaque</span>}
                   </div>
-                  <p className="text-[11px] opacity-60 font-bold uppercase tracking-wider text-emerald-500">{s.empresa_nome}</p>
+                  {s.categoria && <p className={`text-[11px] font-bold uppercase tracking-wider ${theme === "dark" ? "text-white/50" : "text-zinc-500"}`}>{s.categoria}</p>}
+                  {s.empresa_nome && <p className="text-[11px] opacity-60 font-bold uppercase tracking-wider text-emerald-500">{s.empresa_nome}</p>}
                 </div>
-                <div className="text-right">
-                  <span className="text-xl font-black text-emerald-500">{s.price}</span>
-                </div>
+                {s.price && (
+                  <div className="text-right shrink-0 ml-3">
+                    <span className="text-xl font-black text-emerald-500">{s.price}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3 h-3 opacity-40" />
-                  <span className="text-[11px] opacity-60 truncate max-w-[150px]">{s.address}</span>
-                </div>
-                <Button onClick={() => agendarViaWhatsApp(s)} className="rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-6">Agendar</Button>
+              <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t border-white/5">
+                {s.address && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MapPin className="w-3 h-3 shrink-0 opacity-40" aria-hidden="true" />
+                    <span className="text-[11px] opacity-60 truncate max-w-[150px]">{s.address}</span>
+                  </div>
+                )}
+                <div className="flex-1" />
+                <Button
+                  type="button"
+                  onClick={() => agendarViaWhatsApp(s)}
+                  aria-label={`Agendar ${s.name} via WhatsApp`}
+                  className="min-h-[44px] rounded-full bg-emerald-500 text-white font-bold text-xs px-6 transition-transform active:scale-[0.97] hover:bg-emerald-600"
+                >
+                  Agendar
+                </Button>
               </div>
             </div>
           ))}
@@ -1245,33 +1353,40 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSecti
       
       {!isExpanded && hasVehicle ? (
         <div className="space-y-4">
-          <div onClick={() => setIsExpanded(true)} className={`group cursor-pointer relative overflow-hidden rounded-[22px] border p-5 transition-all ${theme === "dark" ? "border-white/10 bg-[#161618] hover:bg-[#1a1a1d]" : "border-zinc-200 bg-white shadow-md hover:shadow-lg"}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="block text-[10px] font-bold uppercase tracking-widest opacity-50">Veículo Principal</span>
-                <h4 className="mt-1 text-xl font-black tracking-tight">{form.marca} {form.modelo}</h4>
-                <div className="flex gap-2 mt-2.5">
-                  {form.placa && <div className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-widest ${theme === "dark" ? "border-white/10 bg-white/5" : "border-zinc-200 bg-zinc-50"}`}>{form.placa}</div>}
-                  {form.km_atual && <div className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest ${theme === "dark" ? "border-white/10 bg-white/5" : "border-zinc-200 bg-zinc-50"}`}>{form.km_atual} KM</div>}
-                </div>
+          <button
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            aria-label="Editar veículo principal"
+            className={`group flex min-h-[44px] w-full items-center justify-between rounded-[22px] border p-5 text-left transition-all active:scale-[0.98] ${theme === "dark" ? "border-white/10 bg-[#161618] active:bg-[#1a1a1d]" : "border-zinc-200 bg-white shadow-md active:bg-zinc-50"}`}
+          >
+            <div className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold uppercase tracking-widest opacity-50">Veículo Principal</span>
+              <h4 className={`mt-1 text-xl font-black tracking-tight ${theme === "dark" ? "text-white" : "text-zinc-900"}`}>{form.marca} {form.modelo}</h4>
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                {form.placa && <div className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-mono font-bold uppercase tracking-widest ${theme === "dark" ? "border-white/10 bg-white/5 text-white" : "border-zinc-200 bg-zinc-50 text-zinc-800"}`}>{form.placa}</div>}
+                {form.km_atual && <div className={`inline-block rounded-lg border px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest ${theme === "dark" ? "border-white/10 bg-white/5 text-white" : "border-zinc-200 bg-zinc-50 text-zinc-800"}`}>{form.km_atual} KM</div>}
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">✏️</div>
             </div>
-          </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 transition-transform group-active:scale-95">
+              <Pencil className="h-4 w-4" />
+            </div>
+          </button>
 
-          <button 
-              onClick={() => onOpenConsumo()}
-              className={`w-full flex items-center justify-center gap-2 p-4 rounded-[22px] border transition-all ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-blue-50 border-blue-100 text-blue-600"}`}
-            >
-              <BarChart3 size={24} />
-              <span className="text-[11px] font-black uppercase tracking-widest">Consumo</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => onOpenConsumo()}
+            aria-label="Abrir meu consumo"
+            className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[22px] border px-4 transition-all active:scale-[0.98] ${theme === "dark" ? "bg-blue-500/10 border-blue-500/20 text-blue-400 active:bg-blue-500/20" : "bg-blue-50 border-blue-100 text-blue-600 active:bg-blue-100"}`}
+          >
+            <BarChart3 size={20} />
+            <span className="text-[11px] font-black uppercase tracking-widest">Consumo</span>
+          </button>
         </div>
       ) : (
         <form onSubmit={onSave} className={`relative rounded-[22px] border p-5 ${theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white shadow-lg"}`}>
           <div className="mb-4 flex items-center justify-between">
             <h4 className="text-[11px] font-bold uppercase tracking-widest text-emerald-500">{hasVehicle ? "Editar Veículo" : "Novo Veículo"}</h4>
-            {hasVehicle && <button type="button" onClick={() => setIsExpanded(false)} className="text-[10px] font-bold uppercase opacity-50">✕ Cancelar</button>}
+            {hasVehicle && <button type="button" onClick={() => setIsExpanded(false)} aria-label="Cancelar edição" className="min-h-[44px] flex items-center rounded-lg px-3 text-[10px] font-bold uppercase opacity-50 transition-colors active:opacity-80">✕ Cancelar</button>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Marca"><Input value={form.marca} onChange={(e) => setForm({ ...form, marca: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
@@ -1284,7 +1399,7 @@ function CarroSection({ user, requireAuth, fireToast, theme, isPremium, setSecti
               <Field label="Venc. Licenciamento"><Input type="date" value={form.licenciamento_vencimento} onChange={(e) => setForm({ ...form, licenciamento_vencimento: e.target.value })} className={theme === "dark" ? "bg-[#121214] border-white/10" : "bg-zinc-50 border-zinc-200"} /></Field>
             </div>
           </div>
-          <Button type="submit" className="mt-5 w-full rounded-xl bg-emerald-500 py-3 font-bold text-white">Salvar na Garagem</Button>
+          <Button type="submit" className="mt-5 w-full rounded-[14px] bg-emerald-500 py-3 min-h-[44px] font-bold text-white transition-transform active:scale-[0.98] hover:bg-emerald-600">Salvar na Garagem</Button>
         </form>
       )}
 
@@ -1306,7 +1421,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Alert({ tone, title }: { tone: "warn" | "danger"; title: string }) {
   const cls = tone === "danger" ? "border-red-500/40 bg-red-500/10 text-red-500" : "border-yellow-500/40 bg-yellow-500/10 text-yellow-600";
-  return <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold ${cls}`}><AlertTriangle className="h-4 w-4 shrink-0" /><span>{title}</span></div>;
+  return <div role="alert" className={`flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold ${cls}`}><AlertTriangle className="h-4 w-4 shrink-0" /><span>{title}</span></div>;
 }
 
 function FlexCalculator({ theme }: { theme: string }) {
@@ -1448,7 +1563,8 @@ function PlanosSection({ userId, setIsPremium, fireToast, theme, setPlanoAtivo }
 }
 
 
-function PremiosSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount, setSection, setPlanoAtivo }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; setPlanoAtivo: (p: "free" | "pro") => void }) {
+
+function AssinaturaSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount, setSection, setPlanoAtivo }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; setPlanoAtivo: (p: "free" | "pro") => void }) {
   const subscribe = async () => {
     if (!userId) return fireToast("Faça login para assinar");
     try {
@@ -1569,24 +1685,24 @@ function PremiosSection({ userId, balance, entries, isPremium, setIsPremium, ref
     </div>
   );
 }
-function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount, setSection, planoPro = false }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; planoPro?: boolean }) {
-  const rewards = useRewards();
-  const [picked, setPicked] = useState<Reward | null>(null);
+function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fireToast, theme, confirmedCount, setSection }: { userId: string | null; postos: Posto[]; isPremium: boolean; setIsPremium: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void }) {
   const [showLock, setShowLock] = useState(false);
-  const [redeemCode, setRedeemCode] = useState<string | null>(null);
+  const [postoSelecionadoId, setPostoSelecionadoId] = useState<string | null>(null);
 
-  const tryRedeem = (r: Reward) => {
+  // Sem estado de "posto selecionado" em nenhum outro lugar do app — escolhe o
+  // primeiro posto ao carregar e deixa o usuário trocar pelos chips abaixo.
+  useEffect(() => {
+    if (!postoSelecionadoId && postos.length > 0) {
+      setPostoSelecionadoId(postos[0].id);
+    }
+  }, [postos, postoSelecionadoId]);
+
+  const { data: premios = [], isLoading: loadingPremios } = usePremiosPorPosto(postoSelecionadoId);
+  const { data: saldoPosto = 0, isLoading: loadingSaldo } = useSaldoPorPosto(userId, postoSelecionadoId);
+
+  const abrirPremioBloqueado = () => {
     if (!userId) return requireAuth(() => {});
-    if (!isPremium || !planoPro) { setPicked(r); setShowLock(true); return; }
-    if (balance < r.custo_pontos) { fireToast("Pontos insuficientes"); return; }
-    setPicked(r);
-  };
-
-  const confirmRedeem = async () => {
-    if (!picked || !userId) return;
-    const { data, error } = await (supabase.rpc as any)("redeem_reward", { _reward_id: picked.id });
-    if (error || !data) return fireToast("Erro ao resgatar");
-    await refreshPoints(); setRedeemCode(data as string);
+    setShowLock(true);
   };
 
   // Melhora 4.1: Sistema de Conquistas (Badges)
@@ -1599,20 +1715,9 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
   return (
     <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
       <div className={`relative overflow-hidden rounded-[22px] border shadow-xl p-5 transition-all ${theme === "dark" ? "border-white/10 bg-gradient-to-br from-emerald-600 to-emerald-900 text-white" : "border-zinc-200 bg-zinc-900 text-white"}`}>
-        <div className="flex items-center justify-between mb-6">
-          <div><span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Saldo Disponível</span><div className="flex items-baseline gap-2 mt-1"><span className="text-4xl font-black tracking-tighter">{balance}</span><span className="text-sm font-bold opacity-80">pontos</span></div></div>
+        <div className="flex items-center justify-between">
+          <div><span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Saldo Disponível</span><div className="flex items-baseline gap-2 mt-1"><span className="text-4xl font-black tracking-tighter">{loadingSaldo ? "—" : saldoPosto}</span><span className="text-sm font-bold opacity-80">pontos</span></div></div>
           <div className="h-12 w-12 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/10"><Crown className="h-6 w-6 text-yellow-400" /></div>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between"><h4 className="text-[10px] font-bold uppercase tracking-widest opacity-60">Últimas Movimentações</h4><span className="text-[9px] font-medium opacity-40">Ver tudo</span></div>
-          <div className="space-y-2">
-            {planoPro && entries.length > 0 ? entries.slice(0, 3).map((e) => (
-              <div key={e.id} className="flex items-center justify-between rounded-xl bg-white/5 p-3 border border-white/5">
-                <div className="flex flex-col"><span className="text-[11px] font-bold leading-tight">{e.descricao === 'Confirmou preço' ? 'Avaliou posto' : e.descricao}</span><span className="text-[9px] opacity-50 mt-0.5">{new Date(e.created_at).toLocaleDateString('pt-BR')}</span></div>
-                <span className={`text-xs font-black ${e.delta > 0 ? "text-emerald-400" : "text-red-400"}`}>{e.delta > 0 ? `+${e.delta}` : e.delta}</span>
-              </div>
-            )) : planoPro ? <p className="text-[10px] opacity-50 py-2">Nenhuma movimentação ainda.</p> : <p className="text-[10px] opacity-50 py-2">Resgate de prêmios indisponível no plano gratuito.</p>}
-          </div>
         </div>
       </div>
 
@@ -1638,58 +1743,92 @@ function PlusSection({ userId, balance, entries, isPremium, setIsPremium, refres
         </div>
       </div>
 
-      {planoPro && (
       <div>
         <div className="flex items-center gap-2 mb-4 pl-1">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/10 text-lg shadow-inner">🎁</span>
           <h3 className={`text-[13px] font-extrabold uppercase tracking-widest ${theme === "dark" ? "text-muted-foreground/80" : "text-zinc-500"}`}>Prêmios Disponíveis</h3>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {rewards.map((r) => (
-            <div key={r.id} onClick={() => tryRedeem(r)} className={`group relative flex flex-col overflow-hidden rounded-[22px] border p-4 shadow-xl transition-all duration-300 hover:shadow-2xl hover:border-emerald-500/30 cursor-pointer ${theme === "dark" ? "bg-[#161618] border-white/10 hover:bg-[#1a1a1d]" : "bg-white border-zinc-200 hover:bg-zinc-50"}`}>
-              <div className="mb-3 text-3xl drop-shadow-md">{r.emoji ?? "🎁"}</div>
-              <h4 className="text-[13px] font-bold leading-tight mb-1">{r.nome}</h4>
-              <p className="mb-4 text-[11px] line-clamp-2 h-8 opacity-60">{r.descricao}</p>
-              <div className="mt-auto border-t border-white/5 pt-3"><div className="flex items-baseline gap-1"><span className="text-lg font-black text-emerald-500">{r.custo_pontos}</span><span className="text-[9px] font-bold uppercase opacity-40">pontos</span></div></div>
-                        </div>
-          ))}
-        </div>
+
+        {postos.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+            {postos.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPostoSelecionadoId(p.id)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                  postoSelecionadoId === p.id
+                    ? "border-emerald-500 bg-emerald-500/10 text-emerald-500"
+                    : theme === "dark" ? "border-white/10 text-white/60" : "border-zinc-200 text-zinc-500"
+                }`}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {loadingPremios ? (
+          <p className="py-6 text-center text-[11px] opacity-50">Carregando prêmios...</p>
+        ) : premios.length === 0 ? (
+          <p className="py-6 text-center text-[11px] opacity-50">Nenhum prêmio disponível neste posto no momento.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {premios.map((p) => {
+              const bloqueadoPro = p.exclusivo_premium && !isPremium;
+              const disponivel = !bloqueadoPro && saldoPosto >= p.pontos_necessarios;
+              const insuficiente = !bloqueadoPro && !disponivel;
+              return (
+                <div
+                  key={p.id}
+                  onClick={bloqueadoPro ? abrirPremioBloqueado : undefined}
+                  role={bloqueadoPro ? "button" : undefined}
+                  tabIndex={bloqueadoPro ? 0 : undefined}
+                  aria-label={
+                    bloqueadoPro
+                      ? `${p.nome}, exclusivo para assinantes Abastece+ Pro`
+                      : disponivel
+                        ? `${p.nome}, custa ${p.pontos_necessarios} pontos, disponível`
+                        : `${p.nome}, custa ${p.pontos_necessarios} pontos, pontos insuficientes`
+                  }
+                  className={`group relative flex min-h-[110px] flex-col gap-2 rounded-[22px] border p-4 shadow-xl transition-all duration-300 ${
+                    bloqueadoPro ? "cursor-pointer hover:shadow-2xl" : insuficiente ? "opacity-50" : ""
+                  } ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"}`}
+                >
+                  {bloqueadoPro && (
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-yellow-400/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-yellow-500">
+                      <Crown className="h-3 w-3" aria-hidden /> Pro
+                    </span>
+                  )}
+                  <h4 className="text-[13px] font-bold leading-tight mb-1 pr-10">{p.nome}</h4>
+                  <span className={`mt-auto inline-flex items-center justify-between gap-1 text-xs font-bold ${
+                    bloqueadoPro ? "text-yellow-500" : disponivel ? "text-emerald-500" : theme === "dark" ? "text-white/40" : "text-zinc-400"
+                  }`}>
+                    <span className="inline-flex items-center gap-1">
+                      <Zap className="h-3 w-3" aria-hidden /> {p.pontos_necessarios} pontos
+                    </span>
+                    {insuficiente && (
+                      <span className="inline-flex items-center gap-1" aria-hidden>
+                        <Lock className="h-3 w-3" /> Falta {p.pontos_necessarios - saldoPosto}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-      )}
-      {planoPro && (
+
       <Dialog open={showLock} onOpenChange={setShowLock}>
         <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
           <div className="text-center p-6">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500"><Crown className="h-8 w-8" /></div>
             <DialogHeader><DialogTitle className="text-xl font-black">Área Exclusiva</DialogTitle><DialogDescription className="opacity-60">O resgate de prêmios está disponível apenas para membros do clube Abastece+ Pro.</DialogDescription></DialogHeader>
-                        <Button onClick={() => { setShowLock(false); setSection("premios"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">FECHAR</Button>
+                        <Button onClick={() => { setShowLock(false); setSection("assinatura"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">FECHAR</Button>
           </div>
         </DialogContent>
       </Dialog>
-      )}
-      {planoPro && (
-      <Dialog open={!!picked && !showLock && !redeemCode} onOpenChange={() => setPicked(null)}>
-        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
-          <div className="p-6 text-center">
-            <div className="text-4xl mb-4">{picked?.emoji}</div>
-            <DialogHeader><DialogTitle className="text-xl font-black">Confirmar Resgate?</DialogTitle><DialogDescription className="opacity-60">Você usará {picked?.custo_pontos} pontos para resgatar: {picked?.nome}</DialogDescription></DialogHeader>
-                        <div className="mt-6 flex gap-3"><Button variant="outline" onClick={() => setPicked(null)} className="flex-1 rounded-xl">Cancelar</Button><Button onClick={confirmRedeem} className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white">Resgatar</Button></div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      )}
-      {planoPro && (
-      <Dialog open={!!redeemCode} onOpenChange={() => setRedeemCode(null)}>
-        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
-          <div className="p-6 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">🎉</div>
-            <DialogHeader><DialogTitle className="text-xl font-black">Resgate Realizado!</DialogTitle><DialogDescription className="opacity-60">Apresente o código abaixo no posto para retirar seu prêmio.</DialogDescription></DialogHeader>
-            <div className="mt-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"><span className="text-3xl font-black tracking-[0.2em] text-emerald-500">{redeemCode}</span></div>
-            <Button onClick={() => setRedeemCode(null)} className="mt-6 w-full rounded-xl bg-emerald-500 font-bold text-white">Entendido</Button>
-          </div>
-                </DialogContent>
-      </Dialog>
-      )}
     </section>
   );
 }
