@@ -12,6 +12,7 @@ import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
 import { usePremium } from "@/hooks/use-rewards";
 import { usePremiosPorPosto, useSaldoPorPosto, type Premio } from "@/hooks/use-premios";
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { usePostos, useServicos } from "@/hooks/use-data-queries";
 import { usePostoServicos } from "@/hooks/usePostoServicos";
 import { fmtCurrency } from "@/lib/utils-fmt";
@@ -1698,12 +1699,94 @@ function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fir
   }, [postos, postoSelecionadoId]);
 
   const { data: premios = [], isLoading: loadingPremios } = usePremiosPorPosto(postoSelecionadoId);
-  const { data: saldoPosto = 0, isLoading: loadingSaldo } = useSaldoPorPosto(userId, postoSelecionadoId);
+  const { data: saldoPosto = 0, isLoading: loadingSaldo, refetch: refetchSaldo } = useSaldoPorPosto(userId, postoSelecionadoId);
 
   const abrirPremioBloqueado = () => {
     if (!userId) return requireAuth(() => {});
     setShowLock(true);
   };
+
+  // Fluxo de resgate: confirmar -> chamar criar-codigo-pontos -> mostrar código + contagem
+  const [premioConfirmar, setPremioConfirmar] = useState<Premio | null>(null);
+  const [gerandoCodigo, setGerandoCodigo] = useState(false);
+  const [erroConfirmar, setErroConfirmar] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<{ codigo: string; expiraEm: string; quantidadePontos: number; premioNome: string } | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState(0);
+
+  useEffect(() => {
+    if (!resultado) return;
+    const calcularRestante = () => Math.max(0, Math.floor((new Date(resultado.expiraEm).getTime() - Date.now()) / 1000));
+    setSegundosRestantes(calcularRestante());
+    const interval = setInterval(() => setSegundosRestantes(calcularRestante()), 1000);
+    return () => clearInterval(interval);
+  }, [resultado]);
+
+  const abrirConfirmacao = (p: Premio) => {
+    if (!userId) return requireAuth(() => {});
+    setErroConfirmar(null);
+    setPremioConfirmar(p);
+  };
+
+  const mensagemErroResgate = (raw: string): string => {
+    const texto = raw.toLowerCase();
+    if (texto.includes("saldo")) return "Saldo insuficiente para este prêmio.";
+    if (texto.includes("exclusivo")) return "Este prêmio é exclusivo para assinantes Abastece+ Pro.";
+    if (texto.includes("indispon") || texto.includes("invalido") || texto.includes("inválido")) return "Este prêmio não está mais disponível.";
+    if (texto.includes("autenticado") || texto.includes("token")) return "Sua sessão expirou. Faça login novamente.";
+    return "Não foi possível gerar o código agora. Tente novamente.";
+  };
+
+  const confirmarResgate = async () => {
+    if (!premioConfirmar || !postoSelecionadoId) return;
+    setGerandoCodigo(true);
+    setErroConfirmar(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        setErroConfirmar("Sua sessão expirou. Faça login novamente.");
+        setGerandoCodigo(false);
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke("criar-codigo-pontos", {
+        body: { tipo: "resgate", posto_id: postoSelecionadoId, premio_id: premioConfirmar.id },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (error) {
+        let msg = "Não foi possível gerar o código agora. Tente novamente.";
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const body = await error.context.json();
+            if (body?.error) msg = mensagemErroResgate(String(body.error));
+          } catch {
+            // mantém mensagem genérica se o corpo não vier em JSON
+          }
+        }
+        setErroConfirmar(msg);
+        return;
+      }
+
+      const payload = data as { codigo: string; expira_em: string; quantidade_pontos: number };
+      setResultado({
+        codigo: payload.codigo,
+        expiraEm: payload.expira_em,
+        quantidadePontos: payload.quantidade_pontos,
+        premioNome: premioConfirmar.nome,
+      });
+      setPremioConfirmar(null);
+      refetchSaldo();
+    } catch {
+      setErroConfirmar("Não foi possível gerar o código agora. Tente novamente.");
+    } finally {
+      setGerandoCodigo(false);
+    }
+  };
+
+  const mm = String(Math.floor(segundosRestantes / 60)).padStart(2, "0");
+  const ss = String(segundosRestantes % 60).padStart(2, "0");
 
   // Melhora 4.1: Sistema de Conquistas (Badges)
   const badges = [
@@ -1781,9 +1864,9 @@ function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fir
               return (
                 <div
                   key={p.id}
-                  onClick={bloqueadoPro ? abrirPremioBloqueado : undefined}
-                  role={bloqueadoPro ? "button" : undefined}
-                  tabIndex={bloqueadoPro ? 0 : undefined}
+                  onClick={bloqueadoPro ? abrirPremioBloqueado : disponivel ? () => abrirConfirmacao(p) : undefined}
+                  role={bloqueadoPro || disponivel ? "button" : undefined}
+                  tabIndex={bloqueadoPro || disponivel ? 0 : undefined}
                   aria-label={
                     bloqueadoPro
                       ? `${p.nome}, exclusivo para assinantes Abastece+ Pro`
@@ -1792,7 +1875,7 @@ function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fir
                         : `${p.nome}, custa ${p.pontos_necessarios} pontos, pontos insuficientes`
                   }
                   className={`group relative flex min-h-[110px] flex-col gap-2 rounded-[22px] border p-4 shadow-xl transition-all duration-300 ${
-                    bloqueadoPro ? "cursor-pointer hover:shadow-2xl" : insuficiente ? "opacity-50" : ""
+                    bloqueadoPro || disponivel ? "cursor-pointer hover:shadow-2xl hover:border-emerald-500/30" : insuficiente ? "opacity-50" : ""
                   } ${theme === "dark" ? "bg-[#161618] border-white/10" : "bg-white border-zinc-200"}`}
                 >
                   {bloqueadoPro && (
@@ -1826,6 +1909,47 @@ function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fir
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-500"><Crown className="h-8 w-8" /></div>
             <DialogHeader><DialogTitle className="text-xl font-black">Área Exclusiva</DialogTitle><DialogDescription className="opacity-60">O resgate de prêmios está disponível apenas para membros do clube Abastece+ Pro.</DialogDescription></DialogHeader>
                         <Button onClick={() => { setShowLock(false); setSection("assinatura"); }} className="mt-6 w-full rounded-xl bg-yellow-500 hover:bg-yellow-600 font-bold text-white">FECHAR</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!premioConfirmar} onOpenChange={(open) => { if (!open) { setPremioConfirmar(null); setErroConfirmar(null); } }}>
+        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="p-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500"><Zap className="h-8 w-8" /></div>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black">Confirmar Resgate?</DialogTitle>
+              <DialogDescription className="opacity-60">Você usará {premioConfirmar?.pontos_necessarios} pontos para resgatar: {premioConfirmar?.nome}</DialogDescription>
+            </DialogHeader>
+            {erroConfirmar && (
+              <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm font-semibold text-red-400">{erroConfirmar}</p>
+            )}
+            <div className="mt-6 flex gap-3">
+              <Button variant="outline" onClick={() => { setPremioConfirmar(null); setErroConfirmar(null); }} disabled={gerandoCodigo} className="flex-1 rounded-xl">Cancelar</Button>
+              <Button onClick={confirmarResgate} disabled={gerandoCodigo} className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white">
+                {gerandoCodigo ? "Gerando..." : "Resgatar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resultado} onOpenChange={(open) => { if (!open) setResultado(null); }}>
+        <DialogContent className={`rounded-[32px] border-none ${theme === "dark" ? "bg-[#0b0f19] text-white" : "bg-white text-zinc-900"}`}>
+          <div className="p-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">🎉</div>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black">Resgate Confirmado!</DialogTitle>
+              <DialogDescription className="opacity-60">Apresente o código abaixo no caixa do posto para retirar: {resultado?.premioNome}</DialogDescription>
+            </DialogHeader>
+            <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <span className="text-3xl font-black tracking-[0.3em] text-emerald-500">{resultado?.codigo}</span>
+            </div>
+            <p className={`mt-3 text-xs font-bold ${segundosRestantes > 0 ? "text-muted-foreground" : "text-red-400"}`}>
+              {segundosRestantes > 0 ? `Expira em ${mm}:${ss}` : "Código expirado"}
+            </p>
+            <p className="mt-1 text-[11px] opacity-50">-{resultado?.quantidadePontos} pontos</p>
+            <Button onClick={() => setResultado(null)} className="mt-6 w-full rounded-xl bg-emerald-500 font-bold text-white">Entendido</Button>
           </div>
         </DialogContent>
       </Dialog>
