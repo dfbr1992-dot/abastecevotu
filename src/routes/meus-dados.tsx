@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
-import { usePoints } from "@/hooks/use-points";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
 import { usePremium } from "@/hooks/use-rewards";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, User, Mail, Phone, MapPin, LogOut, ShieldAlert, CheckCircle, Car, TrendingUp, History, Lock, AlertTriangle, ChevronRight } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin, LogOut, ShieldAlert, CheckCircle, Car, Lock, AlertTriangle, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/meus-dados")({
   component: MeusDadosRoute,
@@ -20,7 +19,6 @@ export function MeusDadosPage({ theme }: { theme: string }) {
   const navigate = useNavigate();
   const { user, signOut, displayName } = useAuth();
   const { isPremium } = usePremium(user?.id ?? null);
-  const { balance, entries } = usePoints(user?.id ?? null);
   const { vehicle } = useVehicle(user?.id ?? null);
 
   const [loading, setLoading] = useState(false);
@@ -152,15 +150,6 @@ export function MeusDadosPage({ theme }: { theme: string }) {
               }`}>
                 {isPremium ? "🏆 Membro Premium" : "👤 Membro Comum"}
               </span>
-              {balance > 0 && (
-                <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border ${
-                  theme === "dark" 
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-                    : "bg-emerald-100 border-emerald-200 text-emerald-600"
-                }`}>
-                  💰 {balance} pontos
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -168,22 +157,6 @@ export function MeusDadosPage({ theme }: { theme: string }) {
 
       {/* RESUMO RÁPIDO DE DADOS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card de Pontos */}
-        {balance > 0 && (
-          <div className={`p-4 rounded-[22px] border transition-all duration-200 ${
-            theme === "dark" ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50"
-          }`}>
-            <div className="flex items-center gap-3 mb-2">
-              <TrendingUp className={`h-5 w-5 ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`} />
-              <span className="text-xs font-bold uppercase opacity-60">Saldo de Pontos</span>
-            </div>
-            <p className={`text-3xl font-black ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
-              {balance}
-            </p>
-            <p className="text-xs opacity-60 mt-1">Pontos disponíveis para resgate</p>
-          </div>
-        )}
-
         {/* Card do Veículo */}
         {vehicle && (
           <div className={`p-4 rounded-[22px] border transition-all duration-200 ${
@@ -371,35 +344,6 @@ export function MeusDadosPage({ theme }: { theme: string }) {
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar Alterações"}
         </button>
       </form>
-
-      {/* HISTÓRICO DE PONTOS */}
-      {entries.length > 0 && (
-        <div className={`p-6 rounded-[22px] border transition-all duration-200 ${
-          theme === "dark" ? "border-white/10 bg-[#161618]" : "border-zinc-200 bg-white shadow-sm"
-        }`}>
-          <div className="flex items-center gap-2 mb-4">
-            <History className="h-5 w-5 text-muted-foreground" />
-            <h4 className={`text-sm font-bold uppercase tracking-wider ${theme === "dark" ? "text-zinc-400" : "text-zinc-500"}`}>
-              Histórico de Pontos
-            </h4>
-          </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {entries.slice(0, 5).map((e) => (
-              <div key={e.id} className={`flex items-center justify-between p-3 rounded-lg border ${
-                theme === "dark" ? "bg-white/5 border-white/5" : "bg-zinc-50 border-zinc-200"
-              }`}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold">{e.descricao}</p>
-                  <p className="text-xs opacity-60">{new Date(e.created_at).toLocaleDateString('pt-BR')}</p>
-                </div>
-                <span className={`text-sm font-black whitespace-nowrap ml-2 ${e.delta > 0 ? "text-emerald-500" : "text-red-500"}`}>
-                  {e.delta > 0 ? `+${e.delta}` : e.delta}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* SEGURANÇA E CONTA */}
       <div className={`p-6 rounded-[22px] border space-y-3 transition-all duration-200 ${

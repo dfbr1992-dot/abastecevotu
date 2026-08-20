@@ -7,7 +7,6 @@ import logoAbasteceVotu from "@/assets/logo-abastece-votu.gif";
 import { AdCarousel } from "@/components/AdCarousel";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useAuth } from "@/hooks/use-auth";
-import { usePoints } from "@/hooks/use-points";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
 import { usePremium } from "@/hooks/use-rewards";
 import { usePremiosPorPosto, useSaldoPorPosto, type Premio } from "@/hooks/use-premios";
@@ -185,7 +184,6 @@ const [showConsumo, setShowConsumo] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [loadingText, setLoadingText] = useState("Carregando...");
 
-  const { balance, entries, refresh: refreshPoints, awardForAction } = usePoints(userId);
   const { isPremium, setIsPremium } = usePremium(userId);
 
   // ===== FASE 1 — abrir planos =====
@@ -222,19 +220,6 @@ const [showConsumo, setShowConsumo] = useState(false);
         title: 'Bem-vindo ao Abastece Votu!',
         description: 'Compare preços, agende serviços e ganhe pontos nos postos de Votuporanga.',
         icon: '👋',
-        timestamp: 'Agora',
-      });
-    }
-
-    // 0b. Primeiro abastecimento registrado — feedback de que o registro funciona
-    const firstRefuelId = entries.find(e => e.delta > 0);
-    if (firstRefuelId && !welcomed) {
-      notifs.push({
-        id: 'welcome-refuel',
-        type: 'points',
-        title: 'Primeiro abastecimento registrado',
-        description: 'Seus abastecimentos já aparecem no menu Consumo e contam pontos.',
-        icon: '⛽',
         timestamp: 'Agora',
       });
     }
@@ -278,22 +263,8 @@ const [showConsumo, setShowConsumo] = useState(false);
       }
     }
     
-    // 3. Últimas transações de pontos
-    if (entries.length > 0) {
-      entries.slice(0, 3).forEach((e) => {
-        notifs.push({
-          id: e.id,
-          type: 'points',
-          title: e.delta > 0 ? 'Pontos Ganhos' : 'Pontos Gastos',
-          description: e.descricao,
-          icon: e.delta > 0 ? '📈' : '📉',
-          timestamp: new Date(e.created_at).toLocaleDateString('pt-BR'),
-        });
-      });
-    }
-    
     return notifs.filter(n => !clearedNotifications.includes(n.id));
-  }, [entries, vehicle, clearedNotifications, welcomed]);
+  }, [vehicle, clearedNotifications, welcomed]);
   // Marcar boas-vindas como vistas quando o painel abre e a notificação de boas-vindas aparece
   useEffect(() => {
     if (showNotifications && !welcomed) {
@@ -541,15 +512,6 @@ const [showConsumo, setShowConsumo] = useState(false);
         }`}>
           {isPremium ? "Premium" : "Comum"}
         </span>
-        {balance > 0 && (
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border flex-1 text-center ${
-            theme === "dark" 
-              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-              : "bg-emerald-100 border-emerald-200 text-emerald-600"
-          }`}>
-            {balance} pts
-          </span>
-        )}
       </div>
     </div>
 
@@ -670,8 +632,7 @@ const [showConsumo, setShowConsumo] = useState(false);
               favorites={favorites}
 onConfirm={(name) => {
 	                setConfirmed([...confirmed, name]);
-	                awardForAction("confirm_price");
-	                fireToast("Obrigado! +5 pontos abastece+");
+	                fireToast("Obrigado por confirmar o preço!");
 	              }}
               onDislike={(name) => {
                 setDisliked([...disliked, name]);
@@ -702,11 +663,8 @@ onConfirm={(name) => {
           {section === "assinatura" && (
             <AssinaturaSection
               userId={userId}
-              balance={balance}
-              entries={entries}
               isPremium={isPremium}
               setIsPremium={setIsPremium}
-              refreshPoints={refreshPoints}
               requireAuth={requireAuth}
               fireToast={fireToast}
               theme={theme}
@@ -1565,7 +1523,7 @@ function PlanosSection({ userId, setIsPremium, fireToast, theme, setPlanoAtivo }
 
 
 
-function AssinaturaSection({ userId, balance, entries, isPremium, setIsPremium, refreshPoints, requireAuth, fireToast, theme, confirmedCount, setSection, setPlanoAtivo }: { userId: string | null; balance: number; entries: any[]; isPremium: boolean; setIsPremium: any; refreshPoints: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; setPlanoAtivo: (p: "free" | "pro") => void }) {
+function AssinaturaSection({ userId, isPremium, setIsPremium, requireAuth, fireToast, theme, confirmedCount, setSection, setPlanoAtivo }: { userId: string | null; isPremium: boolean; setIsPremium: any; requireAuth: any; fireToast: any; theme: string; confirmedCount: number; setSection: (s: Section) => void; setPlanoAtivo: (p: "free" | "pro") => void }) {
   const subscribe = async () => {
     if (!userId) return fireToast("Faça login para assinar");
     try {
