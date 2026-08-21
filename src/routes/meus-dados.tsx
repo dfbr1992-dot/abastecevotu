@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
-import { usePremium } from "@/hooks/use-rewards";
+import { usePremium } from "@/hooks/use-premium-status";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, User, Mail, Phone, MapPin, LogOut, ShieldAlert, CheckCircle, Car, Lock, AlertTriangle, ChevronRight } from "lucide-react";
 

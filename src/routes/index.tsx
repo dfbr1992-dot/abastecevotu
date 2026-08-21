@@ -8,7 +8,7 @@ import { AdCarousel } from "@/components/AdCarousel";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useAuth } from "@/hooks/use-auth";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
-import { usePremium } from "@/hooks/use-rewards";
+import { usePremium } from "@/hooks/use-premium-status";
 import { usePremiosPorPosto, useSaldoPorPosto, type Premio } from "@/hooks/use-premios";
 import { supabase } from "@/integrations/supabase/client";
 import { FunctionsHttpError } from "@supabase/supabase-js";
