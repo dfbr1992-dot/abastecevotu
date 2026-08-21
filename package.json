@@ -8,7 +8,8 @@
         "build": "rmdir /s /q node_modules\\.vite 2>nul & vite build --clearScreen false",
         "build:capacitor": "rmdir /s /q node_modules\\.vite 2>nul & set CAPACITOR_BUILD=1&& vite build --clearScreen false",
         "preview": "vite preview",
-        "build:dev": "vite build --mode development --clearScreen false"
+        "build:dev": "vite build --mode development --clearScreen false",
+        "cap:sync": "cap sync && node scripts/fix-capacitor-spm-paths.mjs"
     },
     "dependencies": {
         "@capacitor/android": "^8.5.0",
@@ -75,6 +76,7 @@
         "zod": "^3.24.2"
     },
     "devDependencies": {
+        "@capacitor/assets": "^3.0.5",
         "@eslint/js": "^9.32.0",
         "@lovable.dev/vite-tanstack-config": "^1.7.0",
         "@types/leaflet": "^1.9.21",

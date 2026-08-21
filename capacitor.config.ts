@@ -1,5 +1,10 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// On Windows, `cap sync` alone can write ios/App/CapApp-SPM/Package.swift
+// with backslash paths for local package dependencies, which is invalid
+// Swift syntax and fails to build in Xcode. Use `npm run cap:sync` instead
+// of `npx cap sync` directly — it runs the sync and then
+// scripts/fix-capacitor-spm-paths.mjs to normalize those paths.
 const config: CapacitorConfig = {
   appId: 'com.abastecevotu.app',
   appName: 'Abastece Votu',
