@@ -1754,7 +1754,21 @@ function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fir
   ];
 
   return (
-    <section className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
+    // TEMP "em breve": catálogo de prêmios ainda sem itens cadastrados. Cobrindo a
+    // tela inteira com o mesmo ComingSoonOverlay já usado na tela de assinatura
+    // (AssinaturaSection, neste arquivo). Os hooks acima (usePremiosPorPosto,
+    // useSaldoPorPosto, fluxo de criar-codigo-pontos) continuam ativos normalmente —
+    // só a UI real fica oculta (className="hidden") abaixo do overlay. Quando o
+    // catálogo for populado: remover o <ComingSoonOverlay> e a <div className="hidden">
+    // (mantendo o conteúdo interno dela), voltando o <section> para
+    // className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20".
+    <section className="relative min-h-[70vh]">
+      <ComingSoonOverlay
+        title="Em breve: Prêmios"
+        description="Estamos preparando o catálogo de prêmios para você. Fique atento ao lançamento em breve!"
+      />
+      <div className="hidden" aria-hidden="true">
+      <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6 pt-2 pb-20">
       <div className={`relative overflow-hidden rounded-[22px] border shadow-xl p-5 transition-all ${theme === "dark" ? "border-white/10 bg-gradient-to-br from-emerald-600 to-emerald-900 text-white" : "border-zinc-200 bg-zinc-900 text-white"}`}>
         <div className="flex items-center justify-between">
           <div><span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Saldo Disponível</span><div className="flex items-baseline gap-2 mt-1"><span className="text-4xl font-black tracking-tighter">{loadingSaldo ? "—" : saldoPosto}</span><span className="text-sm font-bold opacity-80">pontos</span></div></div>
@@ -1911,6 +1925,8 @@ function PlusSection({ userId, postos, isPremium, setIsPremium, requireAuth, fir
           </div>
         </DialogContent>
       </Dialog>
+      </div>
+      </div>
     </section>
   );
 }
