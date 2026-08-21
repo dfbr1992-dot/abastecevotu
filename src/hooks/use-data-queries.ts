@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
+import { Geolocation } from "@capacitor/geolocation";
 import { supabase } from "@/integrations/supabase/client";
+
+const DEFAULT_LOCATION = { lat: -20.4222, lng: -49.9733 };
 
 function calcDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -13,14 +17,23 @@ function calcDistance(lat1: number, lng1: number, lat2: number, lng2: number): n
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getUserLocation(): Promise<{ lat: number; lng: number }> {
+async function getUserLocation(): Promise<{ lat: number; lng: number }> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pos = await Geolocation.getCurrentPosition({ timeout: 5000 });
+      return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    } catch {
+      return DEFAULT_LOCATION;
+    }
+  }
+
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      return resolve({ lat: -20.4222, lng: -49.9733 });
+      return resolve(DEFAULT_LOCATION);
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve({ lat: -20.4222, lng: -49.9733 }),
+      () => resolve(DEFAULT_LOCATION),
       { timeout: 5000 }
     );
   });

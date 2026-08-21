@@ -14,6 +14,7 @@
         "@capacitor/android": "^8.5.0",
         "@capacitor/cli": "^8.5.0",
         "@capacitor/core": "^8.5.0",
+        "@capacitor/geolocation": "^8.2.2",
         "@capacitor/ios": "^8.5.0",
         "@cloudflare/vite-plugin": "^1.25.5",
         "@hookform/resolvers": "^5.2.2",
