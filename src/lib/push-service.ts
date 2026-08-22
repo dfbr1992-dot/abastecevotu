@@ -2,6 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 // Substitua pelo seu VAPID public key gerado pelo Firebase
 const VAPID_PUBLIC_KEY = "BHm0aMLhlzuzxEJXTUb15j62z7LAI0tjowLKFT3jDHznvGozW3LjJJprYFo6s1FmLHX2s9MAR0v7i0dRTAQcJJ4";
 const DEVICE_ID_KEY = "push_device_id";
+// Chave de cooldown do banner de priming (ver NotificationPrimingBanner):
+// timestamp (ms) de quando o usuário clicou em "Agora não" pela última vez.
+const PRIMING_DISMISSED_KEY = "notif_priming_dispensado_em";
+const PRIMING_COOLDOWN_DAYS = 14;
 // Token placeholder usado quando a Push API não está disponível (ex.:
 // ambiente desktop sem serviço de push). O índice composto e a coluna
 // fcm_token NOT NULL exigem um valor não vazio para não duplicar linhas.
@@ -49,10 +53,17 @@ function isAnonToken(token: string): boolean {
 // device_id. Ao fazer login, a inscrição é adotada pelo usuário (ver
 // adoptPushSubscriptionOnLogin). Preserva o fluxo de watch de posto/combustível
 // opcional passado como params extras.
+//
+// Por padrão NÃO solicita Notification.requestPermission() — apenas
+// (re)registra/sincroniza a subscription existente quando a permissão já foi
+// concedida antes. O prompt nativo só deve ser disparado por um gatilho
+// intencional do usuário (ver NotificationPrimingBanner e a tela de
+// Meus Dados), passando options.requestPermission = true.
 export async function registerPushNotifications(
   userId?: string,
   postoId?: string,
-  combustivelTipo?: string
+  combustivelTipo?: string,
+  options: { requestPermission?: boolean } = {}
 ) {
   if (!("serviceWorker" in navigator)) {
     console.warn("Service Workers not supported");
@@ -72,9 +83,12 @@ export async function registerPushNotifications(
     console.log("Service Worker registered with scope:", registration.scope);
     let subscription: PushSubscription | null = await registration.pushManager.getSubscription();
     if (!subscription) {
-      // Solicita a permissão de notificação na primeira carga do PWA,
-      // antes de qualquer autenticação.
       if (permission !== "granted") {
+        if (!options.requestPermission) {
+          // Sem gatilho intencional: não interrompe o usuário com o prompt
+          // nativo. Sai silenciosamente até que o priming autorize o pedido.
+          return;
+        }
         const result = await Notification.requestPermission();
         if (result !== "granted") {
           console.warn("Push permission not granted:", result);
@@ -154,6 +168,45 @@ export async function registerPushNotifications(
     console.error("Error registering push notifications:", error);
   }
 }
+// Dispara Notification.requestPermission() a partir de um gatilho intencional
+// do usuário (clique em "Ativar" no banner de priming ou na tela de Meus
+// Dados) e reaproveita registerPushNotifications() para criar/salvar a
+// subscription assim que a permissão for concedida.
+export async function requestPushPermissionAndRegister(
+  userId?: string,
+  postoId?: string,
+  combustivelTipo?: string
+): Promise<NotificationPermission | "unsupported"> {
+  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+  await registerPushNotifications(userId, postoId, combustivelTipo, { requestPermission: true });
+  return Notification.permission;
+}
+
+// Indica se o banner de priming de notificações pode ser exibido: suporte no
+// navegador, permissão ainda não decidida ("default") e fora do cooldown de
+// PRIMING_COOLDOWN_DAYS após um "Agora não" anterior.
+export function shouldShowNotificationPriming(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!("Notification" in window)) return false;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+  if (Notification.permission !== "default") return false;
+  const dismissedAt = localStorage.getItem(PRIMING_DISMISSED_KEY);
+  if (dismissedAt) {
+    const elapsedMs = Date.now() - Number(dismissedAt);
+    if (elapsedMs < PRIMING_COOLDOWN_DAYS * 24 * 60 * 60 * 1000) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Registra que o usuário dispensou o banner de priming ("Agora não"), para
+// respeitar o cooldown em shouldShowNotificationPriming().
+export function dismissNotificationPriming(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(PRIMING_DISMISSED_KEY, String(Date.now()));
+}
+
 // Adota a inscrição push anônima após o login: chama a RPC adopt_push_subscription
 // passando o device_id salvo em localStorage, que vincula a linha existente ao
 // usuário autenticado (UPDATE, sem duplicar linhas).

@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useVehicle, daysUntil } from "@/hooks/use-vehicle";
 import { usePremium } from "@/hooks/use-premium-status";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, User, Mail, Phone, MapPin, LogOut, ShieldAlert, CheckCircle, Car, Lock, AlertTriangle, ChevronRight } from "lucide-react";
+import { Loader2, User, Mail, Phone, MapPin, LogOut, ShieldAlert, CheckCircle, Car, Lock, AlertTriangle, ChevronRight, Bell } from "lucide-react";
+import { requestPushPermissionAndRegister } from "@/lib/push-service";
 
 export const Route = createFileRoute("/meus-dados")({
   component: MeusDadosRoute,
@@ -30,6 +31,14 @@ export function MeusDadosPage({ theme }: { theme: string }) {
   const [email, setEmail] = useState("");
   const [cidade, setCidade] = useState("Votuporanga");
   const [estado, setEstado] = useState("SP");
+
+  // Segundo ponto de entrada manual para quem dispensou o banner de priming
+  // (ver NotificationPrimingBanner) e mudou de ideia depois. Mesma regra: só
+  // chama Notification.requestPermission() no clique, nunca automaticamente.
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"
+  );
+  const [activatingNotif, setActivatingNotif] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -103,6 +112,17 @@ export function MeusDadosPage({ theme }: { theme: string }) {
   const handleLogout = async () => {
     await signOut();
     navigate({ to: "/" });
+  };
+
+  const handleActivateNotifications = async () => {
+    if (!user || activatingNotif) return;
+    setActivatingNotif(true);
+    try {
+      const result = await requestPushPermissionAndRegister(user.id);
+      setNotifPermission(result);
+    } finally {
+      setActivatingNotif(false);
+    }
   };
 
   if (loading) {
@@ -352,6 +372,36 @@ export function MeusDadosPage({ theme }: { theme: string }) {
         <h4 className={`text-sm font-bold uppercase tracking-wider mb-4 ${theme === "dark" ? "text-zinc-400" : "text-zinc-500"}`}>
           Segurança e Conta
         </h4>
+
+        {/* Notificações */}
+        {user && notifPermission !== "unsupported" && (
+          <div
+            className={`flex w-full items-center justify-between gap-3 p-3 rounded-xl border text-sm font-bold ${
+              theme === "dark" ? "bg-white/5 border-white/5" : "bg-zinc-50 border-zinc-200"
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Bell className={`h-4 w-4 shrink-0 ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`} />
+              <div className="min-w-0">
+                <span>Notificações</span>
+                <p className="text-[10px] font-normal opacity-60 truncate">
+                  {notifPermission === "granted" && "Ativadas — você receberá alertas de preço"}
+                  {notifPermission === "denied" && "Bloqueadas nas configurações do navegador"}
+                  {notifPermission === "default" && "Receba um alerta quando o preço baixar"}
+                </p>
+              </div>
+            </div>
+            {notifPermission === "default" && (
+              <button
+                onClick={handleActivateNotifications}
+                disabled={activatingNotif}
+                className="shrink-0 min-h-[32px] rounded-full bg-emerald-500 px-4 text-xs font-black uppercase tracking-wide text-white transition-transform active:scale-95 disabled:opacity-60"
+              >
+                {activatingNotif ? "..." : "Ativar"}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Alterar Senha */}
         <button

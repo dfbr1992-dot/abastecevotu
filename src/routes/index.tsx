@@ -16,6 +16,8 @@ import { usePostos, useServicos } from "@/hooks/use-data-queries";
 import { usePostoServicos } from "@/hooks/usePostoServicos";
 import { fmtCurrency } from "@/lib/utils-fmt";
 import { AccessControl } from "@/components/AccessControl";
+import { NotificationPrimingBanner } from "@/components/NotificationPrimingBanner";
+import { shouldShowNotificationPriming } from "@/lib/push-service";
 import MeuConsumoScreen from "@/components/MeuConsumoScreen";
 import AbastecerModal from "@/components/AbastecerModal";
 import ComingSoonOverlay from "@/components/ComingSoonOverlay";
@@ -183,6 +185,7 @@ const [showConsumo, setShowConsumo] = useState(false);
   const [favorites, setFavorites] = useLocalStorage<string[]>("abastece_favorites", []);
   const [showSplash, setShowSplash] = useState(true);
   const [loadingText, setLoadingText] = useState("Carregando...");
+  const [showNotifPriming, setShowNotifPriming] = useState(false);
 
   const { isPremium, setIsPremium } = usePremium(userId);
 
@@ -359,6 +362,15 @@ const [showConsumo, setShowConsumo] = useState(false);
     } else {
       setFavorites([...favorites, name]);
       fireToast("Adicionado aos favoritos!");
+      // Gatilho de maior intenção: qualquer favorito (não só o primeiro da
+      // conta — favorites.length é só o localStorage deste dispositivo, então
+      // restringir ao "primeiro histórico" deixaria de fora quem já favoritou
+      // algo antes desta mudança). Só para usuário logado, e só se o priming
+      // ainda fizer sentido (permissão "default", fora do cooldown de um
+      // "Agora não" anterior — shouldShowNotificationPriming já cobre isso).
+      if (user && shouldShowNotificationPriming()) {
+        setShowNotifPriming(true);
+      }
     }
   };
 
@@ -618,6 +630,14 @@ const [showConsumo, setShowConsumo] = useState(false);
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 pb-[80px]">
+          {showNotifPriming && user && (
+            <NotificationPrimingBanner
+              userId={user.id}
+              theme={theme}
+              onClose={() => setShowNotifPriming(false)}
+            />
+          )}
+
           {section === "home" && (
             <HomeSection
               cheapest={cheapest}

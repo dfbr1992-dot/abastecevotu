@@ -54,14 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (s?.user?.id) {
         // Atualiza a inscrição push com o usuário logado e adota a
         // inscrição anônima (device_id) para não perder o registro pré-login.
+        // Não solicita Notification.requestPermission() aqui — só
+        // (re)sincroniza a subscription se a permissão já tiver sido
+        // concedida antes via um gatilho intencional (ver push-service.ts).
         registerPushNotifications(s.user.id);
         if (!adopted) {
           adopted = true;
           adoptPushSubscriptionOnLogin();
         }
       } else {
-        // Fora da sessão: registra a inscrição push anônima (pré-login),
-        // com pedido de permissão de notificação na primeira carga.
+        // Fora da sessão: apenas sincroniza a inscrição push anônima
+        // (pré-login) se a permissão já existir; nunca solicita permissão
+        // para visitante deslogado.
         registerPushNotifications();
       }
     });
